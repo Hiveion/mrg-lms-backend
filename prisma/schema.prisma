@@ -8,8 +8,67 @@ generator client {
   provider = "prisma-client-js"
 }
 
+// User Roles
+enum UserRole {
+  ADMIN
+  COORDINATOR
+  TUTOR
+  STUDENT
+}
+
+// Account Status
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  PENDING
+}
+
+// Tutor Application Status
+enum ApplicationStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
 model User {
-  id    Int     @id @default(autoincrement())
-  email String  @unique
-  name  String?
+  id               Int        @id @default(autoincrement()) @map("user_id")
+  email            String     @unique
+  passwordHash     String     @map("password_hash")
+  firstName        String     @map("first_name")
+  lastName         String     @map("last_name")
+  phoneNumber      String?    @map("phone_number")
+  registrationDate DateTime   @default(now()) @map("registration_date")
+  status           UserStatus @default(PENDING)
+  userType         UserRole   @map("user_type")
+
+  // Relationships
+  tutorProfile   Tutor?
+  studentProfile Student?
+
+  @@map("users")
+}
+
+model Tutor {
+  id                Int               @id @default(autoincrement()) @map("tutor_id")
+  bio               String?
+  qualifications    String[]
+  applicationStatus ApplicationStatus @default(PENDING) @map("application_status")
+  averageRating     Float             @default(0.0) @map("average_rating")
+  totalReviews      Int               @default(0) @map("total_reviews")
+
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId Int  @unique @map("user_id")
+
+  @@map("tutors")
+}
+
+model Student {
+  id             Int      @id @default(autoincrement()) @map("student_id")
+  grade          String?
+  enrollmentDate DateTime @default(now()) @map("enrollment_date")
+
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId Int  @unique @map("user_id")
+
+  @@map("students")
 }
