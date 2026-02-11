@@ -1,5 +1,6 @@
 
-import { Controller, Post, Body, UseGuards, Request, Get, HttpCode, HttpStatus, UnauthorizedException } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Request, Get, HttpCode, HttpStatus, UnauthorizedException, Res } from '@nestjs/common';
+import type { Response } from 'express';
 import { AuthService } from '../Services/auth.service';
 import { RegisterDto, LoginDto } from '../DTOs/auth.dto';
 import { AuthGuard } from '@nestjs/passport';
@@ -35,8 +36,15 @@ export class AuthController {
 
     @Get('google/callback')
     @UseGuards(AuthGuard('google'))
-    googleAuthRedirect(@Request() req: any) {
-        return this.authService.googleLogin(req);
+    async googleAuthRedirect(@Request() req: any, @Res() res: Response) {
+        const result = await this.authService.googleLogin(req);
+
+        // Redirect to frontend callback with token and status
+        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3001';
+
+        res.redirect(
+            `${frontendUrl}/auth/callback?token=${result.access_token}&status=${result.user.status}`
+        );
     }
 
     @Post('complete-registration')

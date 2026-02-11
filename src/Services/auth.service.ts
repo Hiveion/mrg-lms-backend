@@ -64,7 +64,7 @@ export class AuthService {
 
     async googleLogin(req: any) {
         if (!req.user) {
-            return 'No user from google';
+            throw new UnauthorizedException('No user from google');
         }
 
         const { email, firstName, lastName, picture, googleId } = req.user;
