@@ -21,6 +21,7 @@ enum UserStatus {
   ACTIVE
   INACTIVE
   PENDING
+  INCOMPLETE
 }
 
 // Tutor Application Status
@@ -31,15 +32,18 @@ enum ApplicationStatus {
 }
 
 model User {
-  id               Int        @id @default(autoincrement()) @map("user_id")
-  email            String     @unique
-  passwordHash     String     @map("password_hash")
-  firstName        String     @map("first_name")
-  lastName         String     @map("last_name")
-  phoneNumber      String?    @map("phone_number")
-  registrationDate DateTime   @default(now()) @map("registration_date")
-  status           UserStatus @default(PENDING)
-  userType         UserRole   @map("user_type")
+  id             Int        @id @default(autoincrement()) @map("user_id")
+  email          String     @unique
+  googleId       String?    @unique @map("google_id")
+  passwordHash   String?    @map("password_hash")
+  firstName      String     @map("first_name")
+  lastName       String     @map("last_name")
+  profilePicture String?    @map("profile_picture")
+  phoneNumber    String?    @map("phone_number")
+  createdAt      DateTime   @default(now()) @map("created_at")
+  updatedAt      DateTime   @updatedAt @map("updated_at")
+  status         UserStatus @default(INCOMPLETE)
+  userType       UserRole?  @map("user_type")
 
   // Relationships
   tutorProfile   Tutor?

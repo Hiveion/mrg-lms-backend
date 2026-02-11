@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "users" ALTER COLUMN "status" SET DEFAULT 'INCOMPLETE',
+ALTER COLUMN "updated_at" DROP DEFAULT;

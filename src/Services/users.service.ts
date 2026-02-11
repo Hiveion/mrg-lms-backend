@@ -31,4 +31,15 @@ export class UsersService {
             where: { id },
         });
     }
+
+    async update(id: number, data: Prisma.UserUpdateInput): Promise<User> {
+        return this.prisma.user.update({
+            where: { id },
+            data,
+            include: {
+                tutorProfile: true,
+                studentProfile: true,
+            },
+        });
+    }
 }

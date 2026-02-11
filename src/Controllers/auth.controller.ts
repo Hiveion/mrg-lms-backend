@@ -28,4 +28,23 @@ export class AuthController {
     getProfile(@Request() req: any) {
         return req.user;
     }
+
+    @Get('google')
+    @UseGuards(AuthGuard('google'))
+    async googleAuth(@Request() req: any) { }
+
+    @Get('google/callback')
+    @UseGuards(AuthGuard('google'))
+    googleAuthRedirect(@Request() req: any) {
+        return this.authService.googleLogin(req);
+    }
+
+    @Post('complete-registration')
+    @UseGuards(AuthGuard('jwt')) // User must be logged in (even with incomplete status)
+    async completeRegistration(@Request() req: any, @Body() body: any) {
+        // req.user from JWT strategy. Sub is userId.
+        // Note: JWT Strategy needs to ensure it passes through users even with INCOMPLETE status. 
+        // Currently JWT strategy looks up user.
+        return this.authService.completeRegistration(req.user.id, body);
+    }
 }
