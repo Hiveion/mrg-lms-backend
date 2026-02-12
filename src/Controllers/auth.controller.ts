@@ -1,7 +1,10 @@
 
-import { Controller, Post, Body, UseGuards, Request, Get, HttpCode, HttpStatus, UnauthorizedException } from '@nestjs/common';
+
+import { Controller, Post, Body, UseGuards, Request, Get, Put, HttpCode, HttpStatus, UnauthorizedException, Res } from '@nestjs/common';
+import type { Response } from 'express';
 import { AuthService } from '../Services/auth.service';
 import { RegisterDto, LoginDto } from '../DTOs/auth.dto';
+import { UpdateProfileDto } from '../DTOs/user.dto';
 import { AuthGuard } from '@nestjs/passport';
 
 @Controller('auth')
@@ -35,8 +38,15 @@ export class AuthController {
 
     @Get('google/callback')
     @UseGuards(AuthGuard('google'))
-    googleAuthRedirect(@Request() req: any) {
-        return this.authService.googleLogin(req);
+    async googleAuthRedirect(@Request() req: any, @Res() res: Response) {
+        const result = await this.authService.googleLogin(req);
+
+        // Redirect to frontend callback with token and status
+        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3001';
+
+        res.redirect(
+            `${frontendUrl}/auth/callback?token=${result.access_token}&status=${result.user.status}`
+        );
     }
 
     @Post('complete-registration')
@@ -46,5 +56,13 @@ export class AuthController {
         // Note: JWT Strategy needs to ensure it passes through users even with INCOMPLETE status. 
         // Currently JWT strategy looks up user.
         return this.authService.completeRegistration(req.user.id, body);
+    }
+
+    @Put('profile')
+    @UseGuards(AuthGuard('jwt'))
+    @HttpCode(HttpStatus.OK)
+    async updateProfile(@Request() req: any, @Body() updateProfileDto: UpdateProfileDto) {
+        // Update user profile with the provided data
+        return this.authService.updateUserProfile(req.user.id, updateProfileDto);
     }
 }

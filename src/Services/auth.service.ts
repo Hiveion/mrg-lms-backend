@@ -64,7 +64,7 @@ export class AuthService {
 
     async googleLogin(req: any) {
         if (!req.user) {
-            return 'No user from google';
+            throw new UnauthorizedException('No user from google');
         }
 
         const { email, firstName, lastName, picture, googleId } = req.user;
@@ -137,5 +137,19 @@ export class AuthService {
                 }
             } : undefined,
         });
+    }
+
+    async updateUserProfile(userId: number, updateDto: any) {
+        const user = await this.usersService.findById(userId);
+        if (!user) {
+            throw new UnauthorizedException('User not found');
+        }
+
+        // Update the user profile using the updateProfile method
+        const updatedUser = await this.usersService.updateProfile(userId, updateDto);
+
+        // Return the updated user without sensitive data
+        const { passwordHash, ...result } = updatedUser;
+        return result;
     }
 }
