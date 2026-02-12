@@ -5,7 +5,7 @@ import {
     IsArray,
     ValidateIf,
 } from 'class-validator';
-import { UserRole } from '@prisma/client';
+import { UserRole, UserStatus } from '@prisma/client';
 
 /**
  * DTO for updating user profile
@@ -27,6 +27,10 @@ export class UpdateProfileDto {
     @IsEnum(UserRole)
     @IsOptional()
     userType?: UserRole;
+
+    @IsEnum(UserStatus)
+    @IsOptional()
+    status?: UserStatus;
 
     // Tutor-specific fields
     @ValidateIf((o) => o.userType === UserRole.TUTOR)
