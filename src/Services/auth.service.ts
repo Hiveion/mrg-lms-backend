@@ -47,9 +47,7 @@ export class AuthService {
 
         const hashedPassword = await bcrypt.hash(registerDto.password, 10);
 
-        // Only TUTORs need approval (status: PENDING), all other roles are ACTIVE immediately
-        const status = registerDto.userType === UserRole.TUTOR ? UserStatus.PENDING : UserStatus.ACTIVE;
-
+        // All new users start with INCOMPLETE status to ensure profile completion
         const user = await this.usersService.create({
             email: registerDto.email,
             passwordHash: hashedPassword,
@@ -57,7 +55,7 @@ export class AuthService {
             lastName: registerDto.lastName,
             phoneNumber: registerDto.phoneNumber,
             userType: registerDto.userType,
-            status: status,
+            status: UserStatus.INCOMPLETE,
             tutorProfile: registerDto.userType === UserRole.TUTOR ? {
                 create: {
                     bio: registerDto.bio,
