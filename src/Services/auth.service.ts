@@ -26,6 +26,16 @@ export class AuthService {
         const payload = { email: user.email, sub: user.id, role: user.userType };
         return {
             access_token: this.jwtService.sign(payload),
+            user: {
+                id: user.id,
+                email: user.email,
+                firstName: user.firstName,
+                lastName: user.lastName,
+                profilePicture: user.profilePicture,
+                phoneNumber: user.phoneNumber,
+                userType: user.userType,
+                status: user.status,
+            }
         };
     }
 
@@ -37,6 +47,9 @@ export class AuthService {
 
         const hashedPassword = await bcrypt.hash(registerDto.password, 10);
 
+        // Only TUTORs need approval (status: PENDING), all other roles are ACTIVE immediately
+        const status = registerDto.userType === UserRole.TUTOR ? UserStatus.PENDING : UserStatus.ACTIVE;
+
         const user = await this.usersService.create({
             email: registerDto.email,
             passwordHash: hashedPassword,
@@ -44,7 +57,7 @@ export class AuthService {
             lastName: registerDto.lastName,
             phoneNumber: registerDto.phoneNumber,
             userType: registerDto.userType,
-            status: UserStatus.PENDING,
+            status: status,
             tutorProfile: registerDto.userType === UserRole.TUTOR ? {
                 create: {
                     bio: registerDto.bio,
@@ -67,8 +80,13 @@ export class AuthService {
             } : undefined,
         });
 
-        const { passwordHash, ...result } = user;
-        return result;
+        const { passwordHash, ...userResult } = user;
+        const token = await this.login(user);
+
+        return {
+            access_token: token.access_token,
+            user: userResult,
+        };
     }
 
     async googleLogin(req: any) {
@@ -124,15 +142,12 @@ export class AuthService {
             // Or just return user
         }
 
-        // Update user
-        // We need a proper update method in UsersService that handles nested writes, or use prisma directly here if UsersService exposes it, 
-        // OR update UsersService to handle this.
-        // Let's assume we can use a new method in UsersService or just modify it here if we inject PrismaService (which is inside UsersService).
-        // For clean architecture, let's call a method in UsersService.
+        // Only TUTORs need approval (status: PENDING), all other roles are ACTIVE immediately
+        const status = completeDto.userType === UserRole.TUTOR ? UserStatus.PENDING : UserStatus.ACTIVE;
 
         return this.usersService.update(userId, {
             userType: completeDto.userType,
-            status: UserStatus.PENDING, // Or ACTIVE depending on logic
+            status: status,
             phoneNumber: completeDto.phoneNumber,
             tutorProfile: completeDto.userType === UserRole.TUTOR ? {
                 create: {
