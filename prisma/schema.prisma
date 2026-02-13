@@ -109,39 +109,27 @@ model ParentStudent {
 }
 
 model Coordinator {
-  id        Int      @id @default(autoincrement()) @map("coordinator_id")
-  createdAt DateTime @default(now()) @map("created_at")
+  id        Int       @id @default(autoincrement()) @map("coordinator_id")
+  createdAt DateTime  @default(now()) @map("created_at")
 
-  user     User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId   Int                   @unique @map("user_id")
-  subjects CoordinatorSubject[]
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId   Int       @unique @map("user_id")
+  subjects Subject[]
 
   @@map("coordinators")
 }
 
 model Subject {
-  id           Int                  @id @default(autoincrement()) @map("subject_id")
-  name         String               @unique
-  description  String?
-  code         String?              @unique // e.g., "MATH101", "ENG201"
-  createdAt    DateTime             @default(now()) @map("created_at")
-  updatedAt    DateTime             @updatedAt @map("updated_at")
+  id            Int          @id @default(autoincrement()) @map("subject_id")
+  name          String       @unique
+  description   String?
+  code          String?      @unique // e.g., "MATH101", "ENG201"
+  coordinatorId Int?         @map("coordinator_id")
+  createdAt     DateTime     @default(now()) @map("created_at")
+  updatedAt     DateTime     @updatedAt @map("updated_at")
   
-  coordinators CoordinatorSubject[]
+  coordinator   Coordinator? @relation(fields: [coordinatorId], references: [id], onDelete: SetNull)
 
   @@map("subjects")
-}
-
-model CoordinatorSubject {
-  id             Int         @id @default(autoincrement()) @map("coordinator_subject_id")
-  coordinatorId  Int         @map("coordinator_id")
-  subjectId      Int         @map("subject_id")
-  assignedAt     DateTime    @default(now()) @map("assigned_at")
-
-  coordinator Coordinator @relation(fields: [coordinatorId], references: [id], onDelete: Cascade)
-  subject     Subject     @relation(fields: [subjectId], references: [id], onDelete: Cascade)
-
-  @@unique([coordinatorId, subjectId])
-  @@map("coordinator_subjects")
 }
 
