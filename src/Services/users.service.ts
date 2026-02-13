@@ -56,12 +56,11 @@ export class UsersService {
             bio?: string;
             qualifications?: string[];
             grade?: string;
-            relationship?: string;
             occupation?: string;
             numberOfChildren?: number;
         }
     ): Promise<User> {
-        const { bio, qualifications, grade, relationship, occupation, numberOfChildren, ...userData } = updateData;
+        const { bio, qualifications, grade, occupation, numberOfChildren, ...userData } = updateData;
 
         // Build the update object
         const updateObject: Prisma.UserUpdateInput = {
@@ -99,16 +98,14 @@ export class UsersService {
         }
 
         // Handle parent profile update
-        if (updateData.userType === 'PARENT' && (relationship !== undefined || occupation !== undefined || numberOfChildren !== undefined)) {
+        if (updateData.userType === 'PARENT' && (occupation !== undefined || numberOfChildren !== undefined)) {
             updateObject.parentProfile = {
                 upsert: {
                     create: {
-                        relationship: relationship || '',
                         occupation: occupation || '',
                         numberOfChildren: numberOfChildren || 0,
                     },
                     update: {
-                        ...(relationship !== undefined && { relationship }),
                         ...(occupation !== undefined && { occupation }),
                         ...(numberOfChildren !== undefined && { numberOfChildren }),
                     },

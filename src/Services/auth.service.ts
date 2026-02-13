@@ -58,7 +58,6 @@ export class AuthService {
             } : undefined,
             parentProfile: registerDto.userType === UserRole.PARENT ? {
                 create: {
-                    relationship: registerDto.relationship,
                     occupation: registerDto.occupation,
                     numberOfChildren: registerDto.numberOfChildren || 0,
                 }
@@ -148,7 +147,6 @@ export class AuthService {
             } : undefined,
             parentProfile: completeDto.userType === UserRole.PARENT ? {
                 create: {
-                    relationship: completeDto.relationship,
                     occupation: completeDto.occupation,
                     numberOfChildren: completeDto.numberOfChildren || 0,
                 }

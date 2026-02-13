@@ -54,11 +54,6 @@ export class UpdateProfileDto {
     @ValidateIf((o) => o.userType === UserRole.PARENT)
     @IsString()
     @IsOptional()
-    relationship?: string;
-
-    @ValidateIf((o) => o.userType === UserRole.PARENT)
-    @IsString()
-    @IsOptional()
     occupation?: string;
 
     @ValidateIf((o) => o.userType === UserRole.PARENT)
