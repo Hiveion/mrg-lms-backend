@@ -49,4 +49,19 @@ export class UpdateProfileDto {
     @IsString()
     @IsOptional()
     grade?: string;
+
+    // Parent-specific fields
+    @ValidateIf((o) => o.userType === UserRole.PARENT)
+    @IsString()
+    @IsOptional()
+    relationship?: string;
+
+    @ValidateIf((o) => o.userType === UserRole.PARENT)
+    @IsString()
+    @IsOptional()
+    occupation?: string;
+
+    @ValidateIf((o) => o.userType === UserRole.PARENT)
+    @IsOptional()
+    numberOfChildren?: number;
 }

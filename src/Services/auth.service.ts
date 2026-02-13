@@ -56,6 +56,16 @@ export class AuthService {
                     grade: registerDto.grade,
                 }
             } : undefined,
+            parentProfile: registerDto.userType === UserRole.PARENT ? {
+                create: {
+                    relationship: registerDto.relationship,
+                    occupation: registerDto.occupation,
+                    numberOfChildren: registerDto.numberOfChildren || 0,
+                }
+            } : undefined,
+            coordinatorProfile: registerDto.userType === UserRole.COORDINATOR ? {
+                create: {}
+            } : undefined,
         });
 
         const { passwordHash, ...result } = user;
@@ -135,6 +145,16 @@ export class AuthService {
                 create: {
                     grade: completeDto.grade,
                 }
+            } : undefined,
+            parentProfile: completeDto.userType === UserRole.PARENT ? {
+                create: {
+                    relationship: completeDto.relationship,
+                    occupation: completeDto.occupation,
+                    numberOfChildren: completeDto.numberOfChildren || 0,
+                }
+            } : undefined,
+            coordinatorProfile: completeDto.userType === UserRole.COORDINATOR ? {
+                create: {}
             } : undefined,
         });
     }
