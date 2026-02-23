@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsInt, IsOptional, IsBoolean, Min } from 'class-validator';
+import { IsString, IsNotEmpty, IsInt, IsOptional, IsBoolean, Min, IsNumber } from 'class-validator';
 
 export class CreateClassDto {
     @IsString()
@@ -29,6 +29,11 @@ export class CreateClassDto {
     @IsOptional()
     @Min(1)
     maxStudentCount?: number;
+
+    @IsNumber()
+    @IsOptional()
+    @Min(0)
+    classFee?: number;
 }
 
 export class UpdateClassDto {
@@ -60,4 +65,10 @@ export class UpdateClassDto {
     @IsOptional()
     @Min(1)
     maxStudentCount?: number;
+
+    @IsNumber()
+    @IsOptional()
+    @Min(0)
+    classFee?: number;
 }
+
