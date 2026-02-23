@@ -31,6 +31,14 @@ enum ApplicationStatus {
   ACCEPTED
   REJECTED
 }
+
+enum EnrollmentStatus {
+  REQUESTED
+  DEMO_SCHEDULED
+  DEMO_COMPLETED
+  ACTIVE
+  INACTIVE
+}
 // Session Status
 enum SessionStatus {
   SCHEDULED
@@ -87,6 +95,7 @@ model Student {
   user    User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId  Int             @unique @map("user_id")
   parents ParentStudent[]
+  enrollments Enrollment[]
 
   @@map("students")
 }
@@ -158,6 +167,7 @@ model Class {
   subject  Subject   @relation(fields: [subjectId], references: [id])
   tutor    Tutor     @relation(fields: [tutorId], references: [id])
   sessions Session[]
+  enrollments Enrollment[]
 
   @@map("classes")
 }
@@ -179,5 +189,23 @@ model Session {
   nextSessions       Session[] @relation("RescheduledSession")
 
   @@map("sessions")
+}
+
+model Enrollment {
+  id               Int              @id @default(autoincrement()) @map("enrollment_id")
+  studentId        Int              @map("student_id")
+  classId          Int              @map("class_id")
+  enrollmentDate   DateTime         @default(now()) @map("enrollment_date")
+  assignedPrice    Float            @map("assigned_price")
+  status           EnrollmentStatus @default(REQUESTED)
+  confirmationDate DateTime?        @map("confirmation_date")
+  createdAt        DateTime         @default(now()) @map("created_at")
+  updatedAt        DateTime         @updatedAt @map("updated_at")
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  class   Class   @relation(fields: [classId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, classId])
+  @@map("enrollments")
 }
 
