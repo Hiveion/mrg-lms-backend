@@ -1,4 +1,4 @@
-import { IsInt, IsNotEmpty, IsOptional, IsEnum, IsNumber, Min } from 'class-validator';
+import { IsInt, IsNotEmpty, IsOptional, IsEnum, IsNumber, Min, IsString } from 'class-validator';
 import { EnrollmentStatus } from '@prisma/client';
 
 export class CreateEnrollmentDto {
@@ -18,12 +18,20 @@ export class CreateEnrollmentDto {
     @IsEnum(EnrollmentStatus)
     @IsOptional()
     status?: EnrollmentStatus;
+
+    @IsString()
+    @IsOptional()
+    description?: string;
 }
 
 export class UpdateEnrollmentDto {
     @IsEnum(EnrollmentStatus)
     @IsOptional()
     status?: EnrollmentStatus;
+
+    @IsString()
+    @IsOptional()
+    description?: string;
 
     @IsOptional()
     confirmationDate?: Date;
