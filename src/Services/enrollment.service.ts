@@ -136,6 +136,28 @@ export class EnrollmentService {
         });
     }
 
+    async findByStudentUserId(userId: number) {
+        return this.prisma.enrollment.findMany({
+            where: {
+                student: {
+                    userId: userId,
+                },
+            },
+            include: {
+                class: {
+                    include: {
+                        subject: true,
+                        tutor: {
+                            include: {
+                                user: true,
+                            },
+                        },
+                    },
+                },
+            },
+        });
+    }
+
     async remove(id: number) {
         const enrollment = await this.prisma.enrollment.findUnique({
             where: { id },

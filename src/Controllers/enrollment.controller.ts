@@ -1,10 +1,17 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, ParseIntPipe, UseGuards, Request } from '@nestjs/common';
 import { EnrollmentService } from '../Services/enrollment.service';
 import { CreateEnrollmentDto, UpdateEnrollmentDto, UpdateAssignedPriceDto } from '../DTOs/enrollment.dto';
+import { AuthGuard } from '@nestjs/passport';
 
 @Controller('enrollments')
 export class EnrollmentController {
     constructor(private readonly enrollmentService: EnrollmentService) { }
+
+    @UseGuards(AuthGuard('jwt'))
+    @Get('my-enrollments')
+    findMyEnrollments(@Request() req: any) {
+        return this.enrollmentService.findByStudentUserId(req.user.id);
+    }
 
     @Post()
     create(@Body() createEnrollmentDto: CreateEnrollmentDto) {
