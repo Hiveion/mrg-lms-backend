@@ -158,6 +158,62 @@ export class EnrollmentService {
         });
     }
 
+    async findNextSessions(userId: number) {
+        const now = new Date();
+
+        // Find all active enrollments for the student
+        const activeEnrollments = await this.prisma.enrollment.findMany({
+            where: {
+                student: { userId: userId },
+                status: EnrollmentStatus.ACTIVE,
+            },
+            select: {
+                classId: true,
+            },
+        });
+
+        const classIds = activeEnrollments.map(e => e.classId);
+
+        if (classIds.length === 0) {
+            return [];
+        }
+
+        // For each class, find the next upcoming session
+        const sessions = await Promise.all(
+            classIds.map(classId =>
+                this.prisma.session.findFirst({
+                    where: {
+                        classId: classId,
+                        dateTime: {
+                            gt: now,
+                        },
+                        status: 'SCHEDULED',
+                    },
+                    orderBy: {
+                        dateTime: 'asc',
+                    },
+                    include: {
+                        class: {
+                            include: {
+                                subject: true,
+                                tutor: {
+                                    include: {
+                                        user: true,
+                                    },
+                                },
+                            },
+                        },
+                    },
+                })
+            )
+        );
+
+        // Filter out nulls (classes without upcoming sessions) and sort by date
+        return sessions
+            .filter(session => session !== null)
+            .sort((a, b) => a!.dateTime.getTime() - b!.dateTime.getTime());
+    }
+
     async remove(id: number) {
         const enrollment = await this.prisma.enrollment.findUnique({
             where: { id },

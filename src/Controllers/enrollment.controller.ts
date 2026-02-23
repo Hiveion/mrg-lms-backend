@@ -13,6 +13,12 @@ export class EnrollmentController {
         return this.enrollmentService.findByStudentUserId(req.user.id);
     }
 
+    @UseGuards(AuthGuard('jwt'))
+    @Get('next-sessions')
+    findNextSessions(@Request() req: any) {
+        return this.enrollmentService.findNextSessions(req.user.id);
+    }
+
     @Post()
     create(@Body() createEnrollmentDto: CreateEnrollmentDto) {
         return this.enrollmentService.create(createEnrollmentDto);
