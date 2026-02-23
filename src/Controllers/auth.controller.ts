@@ -42,7 +42,7 @@ export class AuthController {
         const result = await this.authService.googleLogin(req);
 
         // Redirect to frontend callback with token and status
-        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3001';
+        const frontendUrl = process.env.FRONTEND_URL;
 
         res.redirect(
             `${frontendUrl}/auth/callback?token=${result.access_token}&status=${result.user.status}`
