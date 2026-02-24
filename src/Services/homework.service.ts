@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../Database/prisma.service';
-import { CreateHomeworkDto } from '../DTOs/homework.dto';
-import { HomeworkType } from '@prisma/client';
+import { CreateHomeworkDto, CreateHomeworkSubmissionDto } from '../DTOs/homework.dto';
+import { HomeworkType, SubmissionStatus } from '@prisma/client';
 
 @Injectable()
 export class HomeworkService {
@@ -109,6 +109,126 @@ export class HomeworkService {
             },
             orderBy: {
                 createdAt: 'desc',
+            },
+        });
+    }
+
+    async submit(userId: number, submissionDto: CreateHomeworkSubmissionDto) {
+        const homework = await this.prisma.homework.findUnique({
+            where: { id: submissionDto.homeworkId },
+        });
+
+        if (!homework) {
+            throw new NotFoundException(`Homework with ID ${submissionDto.homeworkId} not found`);
+        }
+
+        // Get student profile
+        const student = await this.prisma.student.findUnique({
+            where: { userId },
+        });
+
+        if (!student) {
+            throw new NotFoundException('Student profile not found');
+        }
+
+        // Check enrollment
+        const enrollment = await this.prisma.enrollment.findUnique({
+            where: {
+                studentId_classId: {
+                    studentId: student.id,
+                    classId: homework.classId,
+                },
+            },
+        });
+
+        if (!enrollment) {
+            throw new BadRequestException('Student is not enrolled in this class');
+        }
+
+        // Determine status (SUBMITTED or LATE)
+        const now = new Date();
+        let status: SubmissionStatus = SubmissionStatus.SUBMITTED;
+
+        if (homework.deadlineType === 'FIXED_DATE' && homework.deadlineDate && now > homework.deadlineDate) {
+            status = SubmissionStatus.LATE;
+        } else if (homework.deadlineType === 'RELATIVE' && homework.deadlineDays) {
+            const deadline = new Date(homework.createdAt);
+            deadline.setDate(deadline.getDate() + homework.deadlineDays);
+            if (now > deadline) {
+                status = SubmissionStatus.LATE;
+            }
+        }
+
+        return this.prisma.homeworkSubmission.create({
+            data: {
+                homeworkId: homework.id,
+                studentId: student.id,
+                status,
+                submissionFileUrl: submissionDto.submissionFileUrl,
+                answers: submissionDto.answers ? {
+                    create: submissionDto.answers.map(ans => ({
+                        questionId: ans.questionId,
+                        answerText: ans.answerText,
+                    }))
+                } : undefined,
+            },
+            include: {
+                answers: true,
+                homework: true,
+            },
+        });
+    }
+
+    async getMySubmissions(userId: number) {
+        // Get student profile
+        const student = await this.prisma.student.findUnique({
+            where: { userId },
+        });
+
+        if (!student) {
+            throw new NotFoundException('Student profile not found');
+        }
+
+        return this.prisma.homeworkSubmission.findMany({
+            where: { studentId: student.id },
+            include: {
+                homework: {
+                    include: {
+                        class: {
+                            include: {
+                                subject: true,
+                            },
+                        },
+                    },
+                },
+                answers: true,
+            },
+            orderBy: {
+                submittedAt: 'desc',
+            },
+        });
+    }
+
+    async getSubmissionsByHomework(homeworkId: number) {
+        return this.prisma.homeworkSubmission.findMany({
+            where: { homeworkId },
+            include: {
+                student: {
+                    include: {
+                        user: {
+                            select: {
+                                firstName: true,
+                                lastName: true,
+                                email: true,
+                                profilePicture: true,
+                            },
+                        },
+                    },
+                },
+                answers: true,
+            },
+            orderBy: {
+                submittedAt: 'desc',
             },
         });
     }

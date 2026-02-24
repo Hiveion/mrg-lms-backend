@@ -63,3 +63,29 @@ export class CreateHomeworkDto {
     @Type(() => CreateHomeworkQuestionDto)
     questions?: CreateHomeworkQuestionDto[];
 }
+
+export class CreateSubmissionAnswerDto {
+    @IsInt()
+    @IsNotEmpty()
+    questionId: number;
+
+    @IsString()
+    @IsNotEmpty()
+    answerText: string;
+}
+
+export class CreateHomeworkSubmissionDto {
+    @IsInt()
+    @IsNotEmpty()
+    homeworkId: number;
+
+    @IsString()
+    @IsOptional()
+    submissionFileUrl?: string;
+
+    @IsArray()
+    @IsOptional()
+    @ValidateNested({ each: true })
+    @Type(() => CreateSubmissionAnswerDto)
+    answers?: CreateSubmissionAnswerDto[];
+}
