@@ -9,9 +9,10 @@ import { SubjectModule } from './Modules/subject.module';
 import { ClassModule } from './Modules/class.module';
 import { SessionModule } from './Modules/session.module';
 import { EnrollmentModule } from './Modules/enrollment.module';
+import { HomeworkModule } from './Modules/homework.module';
 
 @Module({
-  imports: [DatabaseModule, AuthModule, UsersModule, SubjectModule, ClassModule, SessionModule, EnrollmentModule],
+  imports: [DatabaseModule, AuthModule, UsersModule, SubjectModule, ClassModule, SessionModule, EnrollmentModule, HomeworkModule],
   controllers: [AppController],
   providers: [AppService],
 })
