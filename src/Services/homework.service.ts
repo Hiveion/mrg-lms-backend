@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../Database/prisma.service';
-import { CreateHomeworkDto, CreateHomeworkSubmissionDto } from '../DTOs/homework.dto';
+import { CreateHomeworkDto, CreateHomeworkSubmissionDto, GradeSubmissionDto } from '../DTOs/homework.dto';
 import { HomeworkType, SubmissionStatus } from '@prisma/client';
 
 @Injectable()
@@ -260,6 +260,50 @@ export class HomeworkService {
             },
             orderBy: {
                 submittedAt: 'desc',
+            },
+        });
+    }
+
+    async grade(submissionId: number, gradeDto: GradeSubmissionDto) {
+        const submission = await this.prisma.homeworkSubmission.findUnique({
+            where: { id: submissionId },
+        });
+
+        if (!submission) {
+            throw new NotFoundException(`Submission with ID ${submissionId} not found`);
+        }
+
+        // Update answer marks if provided
+        if (gradeDto.answerMarks && gradeDto.answerMarks.length > 0) {
+            for (const ans of gradeDto.answerMarks) {
+                await this.prisma.submissionAnswer.update({
+                    where: { id: ans.answerId },
+                    data: { marksAwarded: ans.marksAwarded },
+                });
+            }
+        }
+
+        return this.prisma.homeworkSubmission.update({
+            where: { id: submissionId },
+            data: {
+                totalMarksAwarded: gradeDto.totalMarksAwarded,
+                feedback: gradeDto.feedback,
+                status: SubmissionStatus.GRADED,
+            },
+            include: {
+                answers: true,
+                homework: true,
+                student: {
+                    include: {
+                        user: {
+                            select: {
+                                firstName: true,
+                                lastName: true,
+                                email: true
+                            }
+                        }
+                    }
+                }
             },
         });
     }

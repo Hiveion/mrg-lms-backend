@@ -1,6 +1,6 @@
 import { Controller, Post, Body, Get, Param, ParseIntPipe, UseGuards, Request } from '@nestjs/common';
 import { HomeworkService } from '../Services/homework.service';
-import { CreateHomeworkDto, CreateHomeworkSubmissionDto } from '../DTOs/homework.dto';
+import { CreateHomeworkDto, CreateHomeworkSubmissionDto, GradeSubmissionDto } from '../DTOs/homework.dto';
 import { AuthGuard } from '@nestjs/passport';
 
 @Controller('homeworks')
@@ -34,6 +34,11 @@ export class HomeworkController {
     @Post('submit')
     submit(@Request() req: any, @Body() submissionDto: CreateHomeworkSubmissionDto) {
         return this.homeworkService.submit(req.user.id, submissionDto);
+    }
+
+    @Post('grade/:id')
+    grade(@Param('id', ParseIntPipe) id: number, @Body() gradeDto: GradeSubmissionDto) {
+        return this.homeworkService.grade(id, gradeDto);
     }
 
     @Get()

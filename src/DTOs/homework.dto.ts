@@ -89,3 +89,30 @@ export class CreateHomeworkSubmissionDto {
     @Type(() => CreateSubmissionAnswerDto)
     answers?: CreateSubmissionAnswerDto[];
 }
+
+export class GradeAnswerDto {
+    @IsInt()
+    @IsNotEmpty()
+    answerId: number;
+
+    @IsNumber()
+    @Min(0)
+    marksAwarded: number;
+}
+
+export class GradeSubmissionDto {
+    @IsNumber()
+    @IsNotEmpty()
+    @Min(0)
+    totalMarksAwarded: number;
+
+    @IsString()
+    @IsOptional()
+    feedback?: string;
+
+    @IsArray()
+    @IsOptional()
+    @ValidateNested({ each: true })
+    @Type(() => GradeAnswerDto)
+    answerMarks?: GradeAnswerDto[];
+}
