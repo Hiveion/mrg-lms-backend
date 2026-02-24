@@ -70,6 +70,7 @@ enum SubmissionStatus {
   SUBMITTED
   LATE
   PENDING
+  GRADED
 }
 
 model User {

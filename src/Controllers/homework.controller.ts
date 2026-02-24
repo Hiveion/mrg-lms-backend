@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Get, Param, ParseIntPipe, UseGuards } from '@nestjs/common';
+import { Controller, Post, Body, Get, Param, ParseIntPipe, UseGuards, Request } from '@nestjs/common';
 import { HomeworkService } from '../Services/homework.service';
 import { CreateHomeworkDto } from '../DTOs/homework.dto';
 import { AuthGuard } from '@nestjs/passport';
@@ -6,6 +6,12 @@ import { AuthGuard } from '@nestjs/passport';
 @Controller('homeworks')
 export class HomeworkController {
     constructor(private readonly homeworkService: HomeworkService) { }
+
+    @UseGuards(AuthGuard('jwt'))
+    @Get('my-homeworks')
+    findMyHomeworks(@Request() req: any) {
+        return this.homeworkService.findByStudentUserId(req.user.id);
+    }
 
     @Post()
     create(@Body() createHomeworkDto: CreateHomeworkDto) {

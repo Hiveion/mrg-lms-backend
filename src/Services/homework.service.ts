@@ -73,4 +73,43 @@ export class HomeworkService {
             },
         });
     }
+
+    async findByStudentUserId(userId: number) {
+        return this.prisma.homework.findMany({
+            where: {
+                class: {
+                    enrollments: {
+                        some: {
+                            student: {
+                                userId: userId,
+                            },
+                        },
+                    },
+                },
+            },
+            include: {
+                class: {
+                    include: {
+                        subject: true,
+                        tutor: {
+                            select: {
+                                user: {
+                                    select: {
+                                        firstName: true,
+                                        lastName: true,
+                                        email: true,
+                                        profilePicture: true,
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+                questions: true,
+            },
+            orderBy: {
+                createdAt: 'desc',
+            },
+        });
+    }
 }
