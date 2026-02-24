@@ -32,6 +32,22 @@ enum ApplicationStatus {
   REJECTED
 }
 
+enum EnrollmentStatus {
+  REQUESTED
+  DEMO_SCHEDULED
+  DEMO_COMPLETED
+  ACTIVE
+  INACTIVE
+}
+// Session Status
+enum SessionStatus {
+  SCHEDULED
+  ONGOING
+  COMPLETED
+  CANCELLED
+  RESCHEDULED
+}
+
 model User {
   id             Int        @id @default(autoincrement()) @map("user_id")
   email          String     @unique
@@ -66,6 +82,8 @@ model Tutor {
   user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId Int  @unique @map("user_id")
 
+  classes Class[]
+
   @@map("tutors")
 }
 
@@ -77,6 +95,7 @@ model Student {
   user    User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId  Int             @unique @map("user_id")
   parents ParentStudent[]
+  enrollments Enrollment[]
 
   @@map("students")
 }
@@ -114,7 +133,6 @@ model Coordinator {
 
   user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId   Int       @unique @map("user_id")
-  subjects Subject[]
 
   @@map("coordinators")
 }
@@ -124,12 +142,71 @@ model Subject {
   name          String       @unique
   description   String?
   code          String?      @unique // e.g., "MATH101", "ENG201"
-  coordinatorId Int?         @map("coordinator_id")
-  createdAt     DateTime     @default(now()) @map("created_at")
-  updatedAt     DateTime     @updatedAt @map("updated_at")
-  
-  coordinator   Coordinator? @relation(fields: [coordinatorId], references: [id], onDelete: SetNull)
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  classes Class[]
 
   @@map("subjects")
+}
+
+model Class {
+  id                  Int      @id @default(autoincrement()) @map("class_id")
+  name                String   @map("class_name")
+  subjectId           Int      @map("subject_id")
+  tutorId             Int      @map("tutor_id")
+  grade               String?
+  isActive            Boolean  @default(true) @map("is_active")
+  isDemo              Boolean  @default(true) @map("is_demo")
+  currentStudentCount Int      @default(0) @map("current_student_count")
+  maxStudentCount     Int?     @map("max_student_count")
+  classFee            Float    @default(0.0) @map("class_fee")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  subject  Subject   @relation(fields: [subjectId], references: [id])
+  tutor    Tutor     @relation(fields: [tutorId], references: [id])
+  sessions Session[]
+  enrollments Enrollment[]
+
+  @@map("classes")
+}
+
+model Session {
+  id                   Int           @id @default(autoincrement()) @map("session_id")
+  classId              Int           @map("class_id")
+  dateTime             DateTime      @map("date_time")
+  duration             Int // in minutes
+  status               SessionStatus @default(SCHEDULED)
+  rescheduledSessionId Int?          @map("rescheduled_session_id")
+  cancellationReason   String?       @map("cancellation_reason")
+  link                 String?
+  createdAt            DateTime      @default(now()) @map("created_at")
+  updatedAt            DateTime      @updatedAt @map("updated_at")
+
+  class              Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  rescheduledSession Session? @relation("RescheduledSession", fields: [rescheduledSessionId], references: [id])
+  nextSessions       Session[] @relation("RescheduledSession")
+
+  @@map("sessions")
+}
+
+model Enrollment {
+  id               Int              @id @default(autoincrement()) @map("enrollment_id")
+  studentId        Int              @map("student_id")
+  classId          Int              @map("class_id")
+  enrollmentDate   DateTime         @default(now()) @map("enrollment_date")
+  assignedPrice    Float            @map("assigned_price")
+  description      String?          @map("description")
+  status           EnrollmentStatus @default(REQUESTED)
+  confirmationDate DateTime?        @map("confirmation_date")
+  createdAt        DateTime         @default(now()) @map("created_at")
+  updatedAt        DateTime         @updatedAt @map("updated_at")
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  class   Class   @relation(fields: [classId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, classId])
+  @@map("enrollments")
 }
 
