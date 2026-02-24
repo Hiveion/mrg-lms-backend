@@ -209,6 +209,37 @@ export class HomeworkService {
         });
     }
 
+    async getMyLateSubmissions(userId: number) {
+        const student = await this.prisma.student.findUnique({
+            where: { userId },
+        });
+
+        if (!student) {
+            throw new NotFoundException('Student profile not found');
+        }
+
+        return this.prisma.homeworkSubmission.findMany({
+            where: {
+                studentId: student.id,
+                status: SubmissionStatus.LATE,
+            },
+            include: {
+                homework: {
+                    include: {
+                        class: {
+                            include: {
+                                subject: true,
+                            },
+                        },
+                    },
+                },
+            },
+            orderBy: {
+                submittedAt: 'desc',
+            },
+        });
+    }
+
     async getSubmissionsByHomework(homeworkId: number) {
         return this.prisma.homeworkSubmission.findMany({
             where: { homeworkId },
