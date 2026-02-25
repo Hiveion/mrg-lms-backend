@@ -1,6 +1,7 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, ParseIntPipe, UseGuards, Request } from '@nestjs/common';
 import { RatingService } from '../Services/rating.service';
 import { CreateRatingDto, UpdateRatingDto } from '../DTOs/rating.dto';
+import { AuthGuard } from '@nestjs/passport';
 
 @Controller('ratings')
 export class RatingController {
@@ -34,5 +35,17 @@ export class RatingController {
     @Delete(':id')
     remove(@Param('id', ParseIntPipe) id: number) {
         return this.ratingService.remove(id);
+    }
+
+    @UseGuards(AuthGuard('jwt'))
+    @Post(':id/like')
+    addLike(@Param('id', ParseIntPipe) id: number, @Request() req: any) {
+        return this.ratingService.addLike(id, req.user.id);
+    }
+
+    @UseGuards(AuthGuard('jwt'))
+    @Delete(':id/like')
+    removeLike(@Param('id', ParseIntPipe) id: number, @Request() req: any) {
+        return this.ratingService.removeLike(id, req.user.id);
     }
 }

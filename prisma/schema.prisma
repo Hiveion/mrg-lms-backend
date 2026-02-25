@@ -92,6 +92,7 @@ model User {
   studentProfile     Student?
   parentProfile      Parent?
   coordinatorProfile Coordinator?
+  ratingLikes        RatingLike[]
 
   @@map("users")
 }
@@ -208,12 +209,26 @@ model Rating {
   communication   Int      @map("communication")
   punctuality     Int      @map("punctuality")
   review          String?
+  likes           Int      @default(0)
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
 
-  tutor           Tutor    @relation(fields: [tutorId], references: [id], onDelete: Cascade)
+  tutor           Tutor        @relation(fields: [tutorId], references: [id], onDelete: Cascade)
+  ratingLikes     RatingLike[]
 
   @@map("ratings")
+}
+
+model RatingLike {
+  id       Int  @id @default(autoincrement()) @map("rating_like_id")
+  userId   Int  @map("user_id")
+  ratingId Int  @map("review_id")
+
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rating   Rating @relation(fields: [ratingId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, ratingId])
+  @@map("rating_likes")
 }
 
 model Session {

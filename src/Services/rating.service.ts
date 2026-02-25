@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../Database/prisma.service';
 import { CreateRatingDto, UpdateRatingDto } from '../DTOs/rating.dto';
 
@@ -63,6 +63,19 @@ export class RatingService {
                         },
                     },
                 },
+                ratingLikes: {
+                    select: {
+                        id: true,
+                        userId: true,
+                        user: {
+                            select: {
+                                firstName: true,
+                                lastName: true,
+                                profilePicture: true,
+                            },
+                        },
+                    },
+                },
             },
         });
     }
@@ -81,6 +94,19 @@ export class RatingService {
                         },
                     },
                 },
+                ratingLikes: {
+                    select: {
+                        id: true,
+                        userId: true,
+                        user: {
+                            select: {
+                                firstName: true,
+                                lastName: true,
+                                profilePicture: true,
+                            },
+                        },
+                    },
+                },
             },
         });
     }
@@ -95,6 +121,19 @@ export class RatingService {
                             select: {
                                 firstName: true,
                                 lastName: true,
+                            },
+                        },
+                    },
+                },
+                ratingLikes: {
+                    select: {
+                        id: true,
+                        userId: true,
+                        user: {
+                            select: {
+                                firstName: true,
+                                lastName: true,
+                                profilePicture: true,
                             },
                         },
                     },
@@ -176,5 +215,69 @@ export class RatingService {
         });
 
         return { message: 'Rating deleted successfully' };
+    }
+
+    async addLike(ratingId: number, userId: number) {
+        const rating = await this.prisma.rating.findUnique({
+            where: { id: ratingId },
+        });
+
+        if (!rating) {
+            throw new NotFoundException(`Rating with ID ${ratingId} not found`);
+        }
+
+        // Check if user already liked this rating
+        const existingLike = await this.prisma.ratingLike.findUnique({
+            where: {
+                userId_ratingId: { userId, ratingId },
+            },
+        });
+
+        if (existingLike) {
+            throw new BadRequestException('You have already liked this review');
+        }
+
+        // Create the like record and increment the likes count atomically
+        await this.prisma.ratingLike.create({
+            data: { userId, ratingId },
+        });
+
+        return this.prisma.rating.update({
+            where: { id: ratingId },
+            data: { likes: { increment: 1 } },
+        });
+    }
+
+    async removeLike(ratingId: number, userId: number) {
+        const rating = await this.prisma.rating.findUnique({
+            where: { id: ratingId },
+        });
+
+        if (!rating) {
+            throw new NotFoundException(`Rating with ID ${ratingId} not found`);
+        }
+
+        // Check if the user has actually liked this rating
+        const existingLike = await this.prisma.ratingLike.findUnique({
+            where: {
+                userId_ratingId: { userId, ratingId },
+            },
+        });
+
+        if (!existingLike) {
+            throw new BadRequestException('You have not liked this review');
+        }
+
+        // Delete the like record and decrement the likes count atomically
+        await this.prisma.ratingLike.delete({
+            where: {
+                userId_ratingId: { userId, ratingId },
+            },
+        });
+
+        return this.prisma.rating.update({
+            where: { id: ratingId },
+            data: { likes: { decrement: 1 } },
+        });
     }
 }
