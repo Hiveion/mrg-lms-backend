@@ -20,7 +20,23 @@ export class SessionService {
                 dateTime: new Date(createSessionDto.dateTime),
             },
             include: {
-                class: true,
+                class: {
+                    include: {
+                        subject: true,
+                        tutor: {
+                            select: {
+                                user: {
+                                    select: {
+                                        firstName: true,
+                                        lastName: true,
+                                        email: true,
+                                        profilePicture: true,
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
             },
         });
     }
@@ -32,7 +48,16 @@ export class SessionService {
                     include: {
                         subject: true,
                         tutor: {
-                            include: { user: true },
+                            select: {
+                                user: {
+                                    select: {
+                                        firstName: true,
+                                        lastName: true,
+                                        email: true,
+                                        profilePicture: true,
+                                    },
+                                },
+                            },
                         },
                     },
                 },
@@ -48,7 +73,16 @@ export class SessionService {
                     include: {
                         subject: true,
                         tutor: {
-                            include: { user: true },
+                            select: {
+                                user: {
+                                    select: {
+                                        firstName: true,
+                                        lastName: true,
+                                        email: true,
+                                        profilePicture: true,
+                                    },
+                                },
+                            },
                         },
                     },
                 },
@@ -77,7 +111,23 @@ export class SessionService {
                 dateTime: updateSessionDto.dateTime ? new Date(updateSessionDto.dateTime) : undefined,
             },
             include: {
-                class: true,
+                class: {
+                    include: {
+                        subject: true,
+                        tutor: {
+                            select: {
+                                user: {
+                                    select: {
+                                        firstName: true,
+                                        lastName: true,
+                                        email: true,
+                                        profilePicture: true,
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
             },
         });
     }
@@ -93,5 +143,43 @@ export class SessionService {
             }
             throw error;
         }
+    }
+
+    async findByStudentUserId(userId: number) {
+        return this.prisma.session.findMany({
+            where: {
+                class: {
+                    enrollments: {
+                        some: {
+                            student: {
+                                userId: userId,
+                            },
+                        },
+                    },
+                },
+            },
+            include: {
+                class: {
+                    include: {
+                        subject: true,
+                        tutor: {
+                            select: {
+                                user: {
+                                    select: {
+                                        firstName: true,
+                                        lastName: true,
+                                        email: true,
+                                        profilePicture: true,
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+            orderBy: {
+                dateTime: 'asc',
+            },
+        });
     }
 }

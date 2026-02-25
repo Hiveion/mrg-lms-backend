@@ -1,10 +1,17 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, ParseIntPipe, UseGuards, Request } from '@nestjs/common';
 import { SessionService } from '../Services/session.service';
 import { CreateSessionDto, UpdateSessionDto } from '../DTOs/session.dto';
+import { AuthGuard } from '@nestjs/passport';
 
 @Controller('sessions')
 export class SessionController {
     constructor(private readonly sessionService: SessionService) { }
+
+    @UseGuards(AuthGuard('jwt'))
+    @Get('my-sessions')
+    findMySessions(@Request() req: any) {
+        return this.sessionService.findByStudentUserId(req.user.id);
+    }
 
     @Post()
     create(@Body() createSessionDto: CreateSessionDto) {
