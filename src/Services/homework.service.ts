@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../Database/prisma.service';
 import { CreateHomeworkDto, CreateHomeworkSubmissionDto, GradeSubmissionDto } from '../DTOs/homework.dto';
-import { HomeworkType, SubmissionStatus } from '@prisma/client';
+import { HomeworkType, SubmissionStatus, EnrollmentStatus } from '@prisma/client';
 
 @Injectable()
 export class HomeworkService {
@@ -83,6 +83,7 @@ export class HomeworkService {
                             student: {
                                 userId: userId,
                             },
+                            status: EnrollmentStatus.ACTIVE,
                         },
                     },
                 },
@@ -141,8 +142,8 @@ export class HomeworkService {
             },
         });
 
-        if (!enrollment) {
-            throw new BadRequestException('Student is not enrolled in this class');
+        if (!enrollment || enrollment.status !== EnrollmentStatus.ACTIVE) {
+            throw new BadRequestException('Student does not have an active enrollment in this class');
         }
 
         // Determine status (SUBMITTED or LATE)

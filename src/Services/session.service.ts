@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../Database/prisma.service';
 import { CreateSessionDto, UpdateSessionDto } from '../DTOs/session.dto';
+import { EnrollmentStatus, SessionStatus } from '@prisma/client';
 
 @Injectable()
 export class SessionService {
@@ -154,6 +155,7 @@ export class SessionService {
                             student: {
                                 userId: userId,
                             },
+                            status: EnrollmentStatus.ACTIVE,
                         },
                     },
                 },
