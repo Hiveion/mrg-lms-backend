@@ -35,6 +35,10 @@ export class AuthService {
                 phoneNumber: user.phoneNumber,
                 userType: user.userType,
                 status: user.status,
+                studentProfile: user.studentProfile,
+                tutorProfile: user.tutorProfile,
+                parentProfile: user.parentProfile,
+                coordinatorProfile: user.coordinatorProfile,
             }
         };
     }

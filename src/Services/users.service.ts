@@ -25,12 +25,24 @@ export class UsersService {
     async findOne(email: string): Promise<User | null> {
         return this.prisma.user.findUnique({
             where: { email },
+            include: {
+                tutorProfile: true,
+                studentProfile: true,
+                parentProfile: true,
+                coordinatorProfile: true,
+            },
         });
     }
 
     async findById(id: number): Promise<User | null> {
         return this.prisma.user.findUnique({
             where: { id },
+            include: {
+                tutorProfile: true,
+                studentProfile: true,
+                parentProfile: true,
+                coordinatorProfile: true,
+            },
         });
     }
 
