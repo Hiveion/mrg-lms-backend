@@ -48,6 +48,31 @@ enum SessionStatus {
   RESCHEDULED
 }
 
+// Homework Enums
+enum HomeworkType {
+  QUIZ
+  FILE
+}
+
+enum DeadlineType {
+  FIXED_DATE
+  RELATIVE
+}
+
+enum QuestionType {
+  MCQ
+  TRUE_FALSE
+  SHORT
+  FILE
+}
+
+enum SubmissionStatus {
+  SUBMITTED
+  LATE
+  PENDING
+  GRADED
+}
+
 model User {
   id             Int        @id @default(autoincrement()) @map("user_id")
   email          String     @unique
@@ -96,6 +121,7 @@ model Student {
   userId  Int             @unique @map("user_id")
   parents ParentStudent[]
   enrollments Enrollment[]
+  homeworkSubmissions HomeworkSubmission[]
 
   @@map("students")
 }
@@ -168,6 +194,7 @@ model Class {
   tutor    Tutor     @relation(fields: [tutorId], references: [id])
   sessions Session[]
   enrollments Enrollment[]
+  homeworks Homework[]
 
   @@map("classes")
 }
@@ -208,5 +235,72 @@ model Enrollment {
 
   @@unique([studentId, classId])
   @@map("enrollments")
+}
+
+model Homework {
+  id           Int           @id @default(autoincrement()) @map("homework_id")
+  classId      Int           @map("class_id")
+  title        String
+  description  String?
+  type         HomeworkType  @default(FILE)
+  fileUrl      String?       @map("file_url")
+  totalMarks   Float         @map("total_marks")
+  deadlineType DeadlineType  @default(FIXED_DATE) @map("deadline_type")
+  deadlineDate DateTime?     @map("deadline_date")
+  deadlineDays Int?          @map("deadline_days")
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+
+  class        Class         @relation(fields: [classId], references: [id], onDelete: Cascade)
+  questions    HomeworkQuestion[]
+  submissions  HomeworkSubmission[]
+
+  @@map("homeworks")
+}
+
+model HomeworkQuestion {
+  id            Int          @id @default(autoincrement()) @map("question_id")
+  homeworkId    Int          @map("homework_id")
+  questionText  String       @map("question_text")
+  questionType  QuestionType @map("question_type")
+  marks         Float
+  correctAnswer String?      @map("correct_answer")
+
+  homework      Homework     @relation(fields: [homeworkId], references: [id], onDelete: Cascade)
+  answers       SubmissionAnswer[]
+
+  @@map("homework_questions")
+}
+
+model HomeworkSubmission {
+  id                Int              @id @default(autoincrement()) @map("submission_id")
+  homeworkId        Int              @map("homework_id")
+  studentId         Int              @map("student_id")
+  submittedAt       DateTime         @default(now()) @map("submitted_at")
+  status            SubmissionStatus @default(PENDING)
+  totalMarksAwarded Float?           @map("total_marks_awarded")
+  feedback          String?
+  submissionFileUrl String?          @map("submission_file_url")
+  createdAt         DateTime         @default(now()) @map("created_at")
+  updatedAt         DateTime         @updatedAt @map("updated_at")
+
+  homework          Homework         @relation(fields: [homeworkId], references: [id], onDelete: Cascade)
+  student           Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  answers           SubmissionAnswer[]
+
+  @@map("homework_submissions")
+}
+
+model SubmissionAnswer {
+  id            Int                @id @default(autoincrement()) @map("answer_id")
+  submissionId  Int                @map("submission_id")
+  questionId    Int                @map("question_id")
+  answerText    String?            @map("answer_text")
+  marksAwarded  Float?             @map("marks_awarded")
+
+  submission    HomeworkSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  question      HomeworkQuestion   @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@map("submission_answers")
 }
 
