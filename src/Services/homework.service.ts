@@ -173,7 +173,11 @@ export class HomeworkService {
                 } : undefined,
             },
             include: {
-                answers: true,
+                answers: {
+                    include: {
+                        question: true,
+                    },
+                },
                 homework: true,
             },
         });
@@ -201,7 +205,11 @@ export class HomeworkService {
                         },
                     },
                 },
-                answers: true,
+                answers: {
+                    include: {
+                        question: true,
+                    },
+                },
             },
             orderBy: {
                 submittedAt: 'desc',
@@ -233,9 +241,50 @@ export class HomeworkService {
                         },
                     },
                 },
+                answers: {
+                    include: {
+                        question: true,
+                    },
+                },
             },
             orderBy: {
                 submittedAt: 'desc',
+            },
+        });
+    }
+
+    async getMyGradedSubmissions(userId: number) {
+        const student = await this.prisma.student.findUnique({
+            where: { userId },
+        });
+
+        if (!student) {
+            throw new NotFoundException('Student profile not found');
+        }
+
+        return this.prisma.homeworkSubmission.findMany({
+            where: {
+                studentId: student.id,
+                status: SubmissionStatus.GRADED,
+            },
+            include: {
+                homework: {
+                    include: {
+                        class: {
+                            include: {
+                                subject: true,
+                            },
+                        },
+                    },
+                },
+                answers: {
+                    include: {
+                        question: true,
+                    },
+                },
+            },
+            orderBy: {
+                updatedAt: 'desc',
             },
         });
     }
@@ -256,7 +305,12 @@ export class HomeworkService {
                         },
                     },
                 },
-                answers: true,
+                homework: true,
+                answers: {
+                    include: {
+                        question: true,
+                    },
+                },
             },
             orderBy: {
                 submittedAt: 'desc',
@@ -291,7 +345,11 @@ export class HomeworkService {
                 status: SubmissionStatus.GRADED,
             },
             include: {
-                answers: true,
+                answers: {
+                    include: {
+                        question: true,
+                    },
+                },
                 homework: true,
                 student: {
                     include: {
