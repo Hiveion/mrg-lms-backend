@@ -180,7 +180,7 @@ async function main() {
       dateTime.setHours(10 + (i % 5), 0, 0, 0);
     }
 
-    await prisma.session.create({
+    const session1 = await prisma.session.create({
       data: {
         classId: classItem.id,
         dateTime: dateTime,
@@ -196,7 +196,7 @@ async function main() {
     nextWeekDate.setDate(nextWeek.getDate() + (i % 7));
     nextWeekDate.setHours(11 + (i % 4), 30, 0, 0);
 
-    await prisma.session.create({
+    const session2 = await prisma.session.create({
       data: {
         classId: classItem.id,
         dateTime: nextWeekDate,
@@ -205,6 +205,14 @@ async function main() {
         link: `https://meet.google.com/class-${i}-next-week`,
       },
     });
+
+    // Link RESCHEDULED session to the new one
+    if (status === SessionStatus.RESCHEDULED) {
+      await prisma.session.update({
+        where: { id: session1.id },
+        data: { rescheduledSessionId: session2.id },
+      });
+    }
   }
 
   // 7. 2 Upcoming Homeworks for each class

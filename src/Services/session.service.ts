@@ -159,6 +159,7 @@ export class SessionService {
                 },
             },
             include: {
+                rescheduledSession: true,
                 class: {
                     include: {
                         subject: true,
