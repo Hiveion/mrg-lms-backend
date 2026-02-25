@@ -25,6 +25,12 @@ export class HomeworkController {
         return this.homeworkService.getMyLateSubmissions(req.user.id);
     }
 
+    @UseGuards(AuthGuard('jwt'))
+    @Get('my-graded-submissions')
+    findMyGradedSubmissions(@Request() req: any) {
+        return this.homeworkService.getMyGradedSubmissions(req.user.id);
+    }
+
     @Post()
     create(@Body() createHomeworkDto: CreateHomeworkDto) {
         return this.homeworkService.create(createHomeworkDto);
