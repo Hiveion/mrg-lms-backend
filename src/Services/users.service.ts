@@ -136,4 +136,51 @@ export class UsersService {
             },
         });
     }
+
+    async findAllTutors() {
+        return this.prisma.tutor.findMany({
+            where: {
+                applicationStatus: 'ACCEPTED',
+            },
+            include: {
+                user: {
+                    select: {
+                        id: true,
+                        firstName: true,
+                        lastName: true,
+                        email: true,
+                        profilePicture: true,
+                        phoneNumber: true,
+                    },
+                },
+                classes: {
+                    where: { isActive: true },
+                    select: {
+                        id: true,
+                        name: true,
+                        grade: true,
+                        classFee: true,
+                        subject: {
+                            select: { name: true },
+                        },
+                    },
+                },
+                ratings: {
+                    select: {
+                        id: true,
+                        overallRating: true,
+                        teachingQuality: true,
+                        communication: true,
+                        punctuality: true,
+                        review: true,
+                        likes: true,
+                        createdAt: true,
+                    },
+                    orderBy: { createdAt: 'desc' },
+                    take: 5, // latest 5 ratings
+                },
+            },
+            orderBy: { averageRating: 'desc' },
+        });
+    }
 }

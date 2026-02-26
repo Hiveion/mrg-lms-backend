@@ -92,6 +92,7 @@ model User {
   studentProfile     Student?
   parentProfile      Parent?
   coordinatorProfile Coordinator?
+  ratingLikes        RatingLike[]
 
   @@map("users")
 }
@@ -108,6 +109,7 @@ model Tutor {
   userId Int  @unique @map("user_id")
 
   classes Class[]
+  ratings Rating[]
 
   @@map("tutors")
 }
@@ -191,12 +193,42 @@ model Class {
   updatedAt           DateTime @updatedAt @map("updated_at")
 
   subject  Subject   @relation(fields: [subjectId], references: [id])
-  tutor    Tutor     @relation(fields: [tutorId], references: [id])
+  tutor   Tutor     @relation(fields: [tutorId], references: [id])
   sessions Session[]
   enrollments Enrollment[]
   homeworks Homework[]
 
   @@map("classes")
+}
+
+model Rating {
+  id              Int      @id @default(autoincrement()) @map("rating_id")
+  tutorId         Int      @map("tutor_id")
+  overallRating   Float    @map("overall_rating")
+  teachingQuality Int      @map("teaching_quality")
+  communication   Int      @map("communication")
+  punctuality     Int      @map("punctuality")
+  review          String?
+  likes           Int      @default(0)
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  tutor           Tutor        @relation(fields: [tutorId], references: [id], onDelete: Cascade)
+  ratingLikes     RatingLike[]
+
+  @@map("ratings")
+}
+
+model RatingLike {
+  id       Int  @id @default(autoincrement()) @map("rating_like_id")
+  userId   Int  @map("user_id")
+  ratingId Int  @map("review_id")
+
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rating   Rating @relation(fields: [ratingId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, ratingId])
+  @@map("rating_likes")
 }
 
 model Session {
