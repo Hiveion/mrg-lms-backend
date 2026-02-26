@@ -185,4 +185,27 @@ export class SessionService {
             },
         });
     }
+
+    async findByTutorUserId(userId: number) {
+        return this.prisma.session.findMany({
+            where: {
+                class: {
+                    tutor: {
+                        userId: userId,
+                    },
+                },
+            },
+            include: {
+                rescheduledSession: true,
+                class: {
+                    include: {
+                        subject: true,
+                    },
+                },
+            },
+            orderBy: {
+                dateTime: 'asc',
+            },
+        });
+    }
 }
