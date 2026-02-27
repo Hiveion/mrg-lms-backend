@@ -14,6 +14,12 @@ export class HomeworkController {
     }
 
     @UseGuards(AuthGuard('jwt'))
+    @Get('tutor-homeworks')
+    findTutorHomeworks(@Request() req: any) {
+        return this.homeworkService.findByTutorUserId(req.user.id);
+    }
+
+    @UseGuards(AuthGuard('jwt'))
     @Get('my-submissions')
     findMySubmissions(@Request() req: any) {
         return this.homeworkService.getMySubmissions(req.user.id);

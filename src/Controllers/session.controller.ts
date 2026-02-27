@@ -13,6 +13,12 @@ export class SessionController {
         return this.sessionService.findByStudentUserId(req.user.id);
     }
 
+    @UseGuards(AuthGuard('jwt'))
+    @Get('tutor-sessions')
+    findTutorSessions(@Request() req: any) {
+        return this.sessionService.findByTutorUserId(req.user.id);
+    }
+
     @Post()
     create(@Body() createSessionDto: CreateSessionDto) {
         return this.sessionService.create(createSessionDto);

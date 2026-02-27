@@ -114,6 +114,32 @@ export class HomeworkService {
         });
     }
 
+    async findByTutorUserId(userId: number) {
+        return this.prisma.homework.findMany({
+            where: {
+                class: {
+                    tutor: {
+                        userId: userId,
+                    },
+                },
+            },
+            include: {
+                class: {
+                    include: {
+                        subject: true,
+                    },
+                },
+                questions: true,
+                _count: {
+                    select: { submissions: true },
+                },
+            },
+            orderBy: {
+                createdAt: 'desc',
+            },
+        });
+    }
+
     async submit(userId: number, submissionDto: CreateHomeworkSubmissionDto) {
         const homework = await this.prisma.homework.findUnique({
             where: { id: submissionDto.homeworkId },
