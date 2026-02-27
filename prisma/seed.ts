@@ -376,32 +376,11 @@ async function main() {
       review: 'Very professional and always on time. Helped me improve my calculus grades significantly.',
     },
     {
-      overallRating: 4.0,
-      teachingQuality: 4,
-      communication: 5,
-      punctuality: 3,
-      review: 'Great communication, though sessions sometimes run slightly late. Still highly recommended.',
-    },
-    {
       overallRating: 5.0,
       teachingQuality: 5,
       communication: 5,
       punctuality: 5,
       review: "Absolutely the best! Made organic chemistry actually fun to learn. Never thought I'd enjoy it.",
-    },
-    {
-      overallRating: 4.8,
-      teachingQuality: 5,
-      communication: 5,
-      punctuality: 4,
-      review: 'Patient and thorough. Explains things as many times as needed without making you feel rushed.',
-    },
-    {
-      overallRating: 4.2,
-      teachingQuality: 4,
-      communication: 4,
-      punctuality: 5,
-      review: 'Solid teaching style. Provides good examples and always available for questions between sessions.',
     },
   ];
 
@@ -435,19 +414,16 @@ async function main() {
   });
 
   // Add likes:
-  //  Alice  → ratings 0, 1, 3
-  //  Bob    → ratings 0, 2, 4
-  //  Carol  → ratings 1, 3, 5
+  // Alice  → ratings 0, 1
+  // Bob    → ratings 0, 2
+  // Carol  → ratings 1, 2
   const likeMap: { userId: number; ratingIndex: number }[] = [
     { userId: studentUser.id, ratingIndex: 0 },
     { userId: studentUser.id, ratingIndex: 1 },
-    { userId: studentUser.id, ratingIndex: 3 },
     { userId: studentUser2.id, ratingIndex: 0 },
     { userId: studentUser2.id, ratingIndex: 2 },
-    { userId: studentUser2.id, ratingIndex: 4 },
     { userId: studentUser3.id, ratingIndex: 1 },
-    { userId: studentUser3.id, ratingIndex: 3 },
-    { userId: studentUser3.id, ratingIndex: 5 },
+    { userId: studentUser3.id, ratingIndex: 2 },
   ];
 
   for (const { userId, ratingIndex } of likeMap) {

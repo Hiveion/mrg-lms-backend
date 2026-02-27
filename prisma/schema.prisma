@@ -219,6 +219,7 @@ model Rating {
   tutor           Tutor        @relation(fields: [tutorId], references: [id], onDelete: Cascade)
   ratingLikes     RatingLike[]
 
+  @@unique([userId, tutorId])
   @@map("ratings")
 }
 
