@@ -93,6 +93,7 @@ model User {
   parentProfile      Parent?
   coordinatorProfile Coordinator?
   ratingLikes        RatingLike[]
+  ratings            Rating[]
 
   @@map("users")
 }
@@ -203,6 +204,7 @@ model Class {
 
 model Rating {
   id              Int      @id @default(autoincrement()) @map("rating_id")
+  userId          Int      @map("user_id")
   tutorId         Int      @map("tutor_id")
   overallRating   Float    @map("overall_rating")
   teachingQuality Int      @map("teaching_quality")
@@ -213,6 +215,7 @@ model Rating {
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
 
+  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   tutor           Tutor        @relation(fields: [tutorId], references: [id], onDelete: Cascade)
   ratingLikes     RatingLike[]
 

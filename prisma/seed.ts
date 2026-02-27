@@ -408,9 +408,18 @@ async function main() {
   const createdRatings: any[] = [];
   let totalOverall = 0;
 
-  for (const data of ratingsData) {
+  for (let i = 0; i < ratingsData.length; i++) {
+    const data = ratingsData[i];
+    // Alternate between students for ratings
+    const studentUsers = [studentUser, studentUser2, studentUser3];
+    const postingUser = studentUsers[i % studentUsers.length];
+
     const rating = await prisma.rating.create({
-      data: { tutorId, ...data },
+      data: {
+        tutorId,
+        userId: postingUser.id,
+        ...data
+      },
     });
     createdRatings.push(rating);
     totalOverall += data.overallRating;
