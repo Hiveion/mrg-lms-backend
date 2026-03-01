@@ -10,18 +10,15 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
 
-  // Enable CORS to allow requests from frontend
-  const frontendUrl = process.env.FRONTEND_URL;
-  const backendUrl = process.env.BACKEND_URL;
-
   app.enableCors({
-    origin: [frontendUrl, backendUrl].filter(Boolean),
+    origin: true,
     credentials: true,
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     allowedHeaders: 'Content-Type,Authorization',
   });
 
   const port = process.env.PORT;
+  const backendUrl = process.env.BACKEND_URL;
   await app.listen(port!);
   console.log(`Application is running on: ${backendUrl}`);
 }
