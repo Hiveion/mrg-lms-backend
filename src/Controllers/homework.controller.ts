@@ -20,6 +20,12 @@ export class HomeworkController {
     }
 
     @UseGuards(AuthGuard('jwt'))
+    @Get('tutor-pending-submissions')
+    findTutorPendingSubmissions(@Request() req: any) {
+        return this.homeworkService.findTutorPendingSubmissions(req.user.id);
+    }
+
+    @UseGuards(AuthGuard('jwt'))
     @Get('my-submissions')
     findMySubmissions(@Request() req: any) {
         return this.homeworkService.getMySubmissions(req.user.id);

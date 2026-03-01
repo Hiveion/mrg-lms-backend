@@ -145,12 +145,38 @@ async function main() {
     classes.push(classItem);
   }
 
-  // 5. Enroll Alice in first 5 classes
-  const enrolledClasses = classes.slice(0, 5);
-  for (const c of enrolledClasses) {
+  // 5. Enroll Alice in first 5 classes, Bob in 3, Carol in 3
+  const aliceEnrolled = classes.slice(0, 5);
+  for (const c of aliceEnrolled) {
     await prisma.enrollment.create({
       data: {
         studentId: studentId,
+        classId: c.id,
+        assignedPrice: c.classFee,
+        status: EnrollmentStatus.ACTIVE,
+      },
+    });
+  }
+
+  const bobId = studentUser2.studentProfile!.id;
+  const bobEnrolled = classes.slice(2, 5);
+  for (const c of bobEnrolled) {
+    await prisma.enrollment.create({
+      data: {
+        studentId: bobId,
+        classId: c.id,
+        assignedPrice: c.classFee,
+        status: EnrollmentStatus.ACTIVE,
+      },
+    });
+  }
+
+  const carolId = studentUser3.studentProfile!.id;
+  const carolEnrolled = classes.slice(4, 7);
+  for (const c of carolEnrolled) {
+    await prisma.enrollment.create({
+      data: {
+        studentId: carolId,
         classId: c.id,
         assignedPrice: c.classFee,
         status: EnrollmentStatus.ACTIVE,
@@ -285,17 +311,47 @@ async function main() {
   }
 
   // 8. Submissions
-  for (let i = 0; i < 2; i++) {
-    await prisma.homeworkSubmission.create({
-      data: {
-        homeworkId: allHomeworks[i].id,
-        studentId: studentId,
-        status: SubmissionStatus.SUBMITTED,
-        submittedAt: new Date(today.getTime() - 2 * 60 * 60 * 1000),
-        submissionFileUrl: allHomeworks[i].type === HomeworkType.FILE ? 'https://example.com/alice_project.pdf' : null,
+  // Alice: 1 ungraded Quiz, 1 ungraded File
+  await prisma.homeworkSubmission.create({
+    data: {
+      homeworkId: allHomeworks[0].id, // Quiz
+      studentId: studentId,
+      status: SubmissionStatus.SUBMITTED,
+      submittedAt: new Date(today.getTime() - 2 * 60 * 60 * 1000),
+      answers: {
+        create: allHomeworks[0].questions.map((q: any) => ({
+          questionId: q.id,
+          answerText: q.correctAnswer, // Alice got them right
+        })),
       },
-    });
-  }
+    },
+  });
+
+  await prisma.homeworkSubmission.create({
+    data: {
+      homeworkId: allHomeworks[1].id, // File
+      studentId: studentId,
+      status: SubmissionStatus.SUBMITTED,
+      submittedAt: new Date(today.getTime() - 1 * 60 * 60 * 1000),
+      submissionFileUrl: 'https://example.com/alice_project.pdf',
+    },
+  });
+
+  // Bob: 1 ungraded Quiz (Submitted), 1 ungraded File (Late)
+  await prisma.homeworkSubmission.create({
+    data: {
+      homeworkId: allHomeworks[4].id, // Quiz in class 2
+      studentId: bobId,
+      status: SubmissionStatus.SUBMITTED,
+      submittedAt: new Date(today.getTime() - 4 * 60 * 60 * 1000),
+      answers: {
+        create: [
+          { questionId: allHomeworks[4].questions[0].id, answerText: 'Partial Answer' },
+          { questionId: allHomeworks[4].questions[1].id, answerText: 'TRUE' }, // Wrong!
+        ],
+      },
+    },
+  });
 
   const lateDate = new Date(today);
   lateDate.setDate(today.getDate() - 5);
@@ -303,19 +359,37 @@ async function main() {
     data: {
       classId: classes[0].id,
       title: 'Mandatory Calculus Review (Overdue)',
+      description: 'Submission for the late homework review task.',
       type: HomeworkType.FILE,
       totalMarks: 100,
       deadlineType: DeadlineType.FIXED_DATE,
       deadlineDate: lateDate,
     },
   });
+
   await prisma.homeworkSubmission.create({
     data: {
       homeworkId: lateHw.id,
-      studentId: studentId,
+      studentId: bobId,
       status: SubmissionStatus.LATE,
       submittedAt: new Date(),
-      submissionFileUrl: 'https://example.com/alice_late_work.pdf',
+      submissionFileUrl: 'https://example.com/bob_late_work.pdf',
+    },
+  });
+
+  // Carol: 1 ungraded Quiz (Late)
+  await prisma.homeworkSubmission.create({
+    data: {
+      homeworkId: allHomeworks[8].id, // Quiz in class 4
+      studentId: carolId,
+      status: SubmissionStatus.LATE,
+      submittedAt: new Date(),
+      answers: {
+        create: allHomeworks[8].questions.map((q: any) => ({
+          questionId: q.id,
+          answerText: 'I guessed',
+        })),
+      },
     },
   });
 

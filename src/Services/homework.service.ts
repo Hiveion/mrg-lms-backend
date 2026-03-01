@@ -140,6 +140,62 @@ export class HomeworkService {
         });
     }
 
+    async findTutorPendingSubmissions(userId: number) {
+        return this.prisma.homeworkSubmission.findMany({
+            where: {
+                homework: {
+                    class: {
+                        tutor: {
+                            userId: userId,
+                        },
+                    },
+                },
+                status: {
+                    in: [SubmissionStatus.SUBMITTED, SubmissionStatus.LATE],
+                },
+            },
+            include: {
+                student: {
+                    include: {
+                        user: {
+                            select: {
+                                firstName: true,
+                                lastName: true,
+                                email: true,
+                                profilePicture: true,
+                            },
+                        },
+                    },
+                },
+                homework: {
+                    include: {
+                        class: {
+                            include: {
+                                subject: true,
+                            },
+                        },
+                    },
+                },
+                answers: {
+                    include: {
+                        question: {
+                            select: {
+                                id: true,
+                                questionText: true,
+                                questionType: true,
+                                marks: true,
+                                correctAnswer: true,
+                            },
+                        },
+                    },
+                },
+            },
+            orderBy: {
+                submittedAt: 'desc',
+            },
+        });
+    }
+
     async submit(userId: number, submissionDto: CreateHomeworkSubmissionDto) {
         const homework = await this.prisma.homework.findUnique({
             where: { id: submissionDto.homeworkId },
