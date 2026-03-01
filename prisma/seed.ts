@@ -426,7 +426,7 @@ async function main() {
         totalMarksAwarded: 92 + i * 3,
         feedback: 'Very thorough research and professional presentation.',
         submittedAt: new Date(today.getTime() - 4 * 24 * 60 * 60 * 1000),
-        submissionFileUrl: 'https://example.com/alice_graded_work.pdf',
+        submissionFileUrl: `https://mrg-lms-assets.s3.amazonaws.com/submissions/student_${studentId}_hw_${hw.id}_final.pdf`,
       },
     });
   }

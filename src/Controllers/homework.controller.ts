@@ -26,6 +26,12 @@ export class HomeworkController {
     }
 
     @UseGuards(AuthGuard('jwt'))
+    @Get('tutor-graded-submissions')
+    findTutorGradedSubmissions(@Request() req: any) {
+        return this.homeworkService.findTutorGradedSubmissions(req.user.id);
+    }
+
+    @UseGuards(AuthGuard('jwt'))
     @Get('my-submissions')
     findMySubmissions(@Request() req: any) {
         return this.homeworkService.getMySubmissions(req.user.id);
