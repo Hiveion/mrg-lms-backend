@@ -60,9 +60,10 @@ export class HomeworkController {
         return this.homeworkService.submit(req.user.id, submissionDto);
     }
 
+    @UseGuards(AuthGuard('jwt'))
     @Post('grade/:id')
-    grade(@Param('id', ParseIntPipe) id: number, @Body() gradeDto: GradeSubmissionDto) {
-        return this.homeworkService.grade(id, gradeDto);
+    grade(@Request() req: any, @Param('id', ParseIntPipe) id: number, @Body() gradeDto: GradeSubmissionDto) {
+        return this.homeworkService.grade(req.user.id, id, gradeDto);
     }
 
     @Get()

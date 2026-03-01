@@ -455,51 +455,79 @@ export class HomeworkService {
         });
     }
 
-    async grade(submissionId: number, gradeDto: GradeSubmissionDto) {
+    async grade(tutorUserId: number, submissionId: number, gradeDto: GradeSubmissionDto) {
         const submission = await this.prisma.homeworkSubmission.findUnique({
             where: { id: submissionId },
+            include: {
+                homework: {
+                    include: {
+                        class: {
+                            select: {
+                                tutor: {
+                                    select: { userId: true }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         });
 
         if (!submission) {
             throw new NotFoundException(`Submission with ID ${submissionId} not found`);
         }
 
-        // Update answer marks if provided
-        if (gradeDto.answerMarks && gradeDto.answerMarks.length > 0) {
-            for (const ans of gradeDto.answerMarks) {
-                await this.prisma.submissionAnswer.update({
-                    where: { id: ans.answerId },
-                    data: { marksAwarded: ans.marksAwarded },
-                });
-            }
+        if (submission.homework.class.tutor.userId !== tutorUserId) {
+            throw new BadRequestException('You are not the tutor for this class');
         }
 
-        return this.prisma.homeworkSubmission.update({
-            where: { id: submissionId },
-            data: {
-                totalMarksAwarded: gradeDto.totalMarksAwarded,
-                feedback: gradeDto.feedback,
-                status: SubmissionStatus.GRADED,
-            },
-            include: {
-                answers: {
-                    include: {
-                        question: true,
-                    },
+        return this.prisma.$transaction(async (tx) => {
+            // Update individual answer marks if provided
+            if (gradeDto.answerMarks && gradeDto.answerMarks.length > 0) {
+                for (const ans of gradeDto.answerMarks) {
+                    await tx.submissionAnswer.update({
+                        where: { id: ans.answerId },
+                        data: { marksAwarded: ans.marksAwarded },
+                    });
+                }
+            }
+
+            // Update main submission
+            return tx.homeworkSubmission.update({
+                where: { id: submissionId },
+                data: {
+                    totalMarksAwarded: gradeDto.totalMarksAwarded,
+                    feedback: gradeDto.feedback,
+                    status: SubmissionStatus.GRADED,
                 },
-                homework: true,
-                student: {
-                    include: {
-                        user: {
-                            select: {
-                                firstName: true,
-                                lastName: true,
-                                email: true
+                include: {
+                    answers: {
+                        include: {
+                            question: true,
+                        },
+                    },
+                    homework: {
+                        include: {
+                            class: {
+                                include: {
+                                    subject: true
+                                }
+                            }
+                        }
+                    },
+                    student: {
+                        include: {
+                            user: {
+                                select: {
+                                    firstName: true,
+                                    lastName: true,
+                                    email: true
+                                }
                             }
                         }
                     }
-                }
-            },
+                },
+            });
         });
     }
 }
