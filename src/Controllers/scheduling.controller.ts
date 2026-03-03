@@ -64,12 +64,23 @@ export class SchedulingController {
     }
 
     @UseGuards(AuthGuard('jwt'))
+    @Get('match/tutor/students')
+    async getMatchedStudentsForTutor(@Request() req: any) {
+        return this.schedulingService.getMatchedStudentsForTutor(req.user.id);
+    }
+
+    @UseGuards(AuthGuard('jwt'))
+    @Get('match/student/tutors')
+    async getMatchedTutorsForStudent(@Request() req: any) {
+        return this.schedulingService.getMatchedTutorsForStudent(req.user.id);
+    }
+
+    @UseGuards(AuthGuard('jwt'))
     @Get('match/:studentId/:tutorId')
     async matchAvailability(
         @Param('studentId', ParseIntPipe) studentId: number,
         @Param('tutorId', ParseIntPipe) tutorId: number,
     ) {
-        // tutorId/studentId here are the internal profile IDs, can also be modified to take user IDs.
         return this.schedulingService.findOverlaps(tutorId, studentId);
     }
 }

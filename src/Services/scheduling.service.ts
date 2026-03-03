@@ -141,14 +141,134 @@ export class SchedulingService {
     }
 
     async findOverlaps(tutorId: number, studentId: number) {
-        const tutorAvail = await this.prisma.tutorAvailability.findMany({
-            where: { tutorId },
+        const tutor = await this.prisma.tutor.findUnique({
+            where: { id: tutorId },
+            include: {
+                availabilities: true,
+                classes: {
+                    include: {
+                        subject: true
+                    }
+                }
+            }
         });
 
-        const studentAvail = await this.prisma.studentAvailability.findMany({
-            where: { studentId },
+        const student = await this.prisma.student.findUnique({
+            where: { id: studentId },
+            include: { availabilities: true }
         });
 
+        if (!tutor || !student) throw new NotFoundException('Tutor or Student not found');
+
+        const overlaps = this.calculateOverlapsInternal(tutor.availabilities, student.availabilities);
+
+        return {
+            tutorClasses: tutor.classes,
+            overlaps
+        };
+    }
+
+    async getMatchedStudentsForTutor(userId: number) {
+        const tutor = await this.prisma.tutor.findUnique({
+            where: { userId },
+            include: {
+                availabilities: true,
+                classes: {
+                    include: {
+                        subject: true,
+                    },
+                },
+            },
+        });
+
+        if (!tutor) throw new NotFoundException('Tutor profile not found');
+
+        const allStudents = await this.prisma.student.findMany({
+            include: {
+                user: {
+                    select: {
+                        id: true,
+                        firstName: true,
+                        lastName: true,
+                        email: true,
+                        profilePicture: true,
+                    },
+                },
+                availabilities: true,
+            },
+        });
+
+        const matchedStudents = allStudents
+            .map((student) => {
+                const overlaps = this.calculateOverlapsInternal(tutor.availabilities, student.availabilities);
+                if (overlaps.length > 0) {
+                    return {
+                        studentId: student.id,
+                        user: student.user,
+                        grade: student.grade,
+                        overlaps,
+                    };
+                }
+                return null;
+            })
+            .filter(Boolean);
+
+        return {
+            tutorClasses: tutor.classes,
+            matchedStudents,
+        };
+    }
+
+    async getMatchedTutorsForStudent(userId: number) {
+        const student = await this.prisma.student.findUnique({
+            where: { userId },
+            include: { availabilities: true },
+        });
+
+        if (!student) throw new NotFoundException('Student profile not found');
+
+        const allTutors = await this.prisma.tutor.findMany({
+            include: {
+                user: {
+                    select: {
+                        id: true,
+                        firstName: true,
+                        lastName: true,
+                        email: true,
+                        profilePicture: true,
+                    },
+                },
+                availabilities: true,
+                classes: {
+                    include: {
+                        subject: true,
+                    },
+                },
+            },
+        });
+
+        const matchedTutors = allTutors
+            .map((tutor) => {
+                const overlaps = this.calculateOverlapsInternal(tutor.availabilities, student.availabilities);
+                if (overlaps.length > 0) {
+                    return {
+                        tutorId: tutor.id,
+                        user: tutor.user,
+                        bio: tutor.bio,
+                        qualifications: tutor.qualifications,
+                        averageRating: tutor.averageRating,
+                        classes: tutor.classes,
+                        overlaps,
+                    };
+                }
+                return null;
+            })
+            .filter(Boolean);
+
+        return matchedTutors;
+    }
+
+    private calculateOverlapsInternal(tutorAvail: any[], studentAvail: any[]) {
         const overlaps: { day: WeekDay; startTime: string; endTime: string }[] = [];
 
         for (const t of tutorAvail) {
