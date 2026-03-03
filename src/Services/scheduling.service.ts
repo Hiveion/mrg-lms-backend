@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../Database/prisma.service';
-import { SetAvailabilityDto } from '../DTOs/scheduling.dto';
+import { SetAvailabilityDto, UpdateAvailabilitySlotDto } from '../DTOs/scheduling.dto';
 import { WeekDay } from '@prisma/client';
 
 @Injectable()
@@ -33,6 +33,35 @@ export class SchedulingService {
         });
     }
 
+    async updateTutorAvailabilitySlot(userId: number, slotId: number, dto: UpdateAvailabilitySlotDto) {
+        const tutor = await this.prisma.tutor.findUnique({ where: { userId } });
+        if (!tutor) throw new NotFoundException('Tutor not found');
+
+        const slot = await this.prisma.tutorAvailability.findFirst({
+            where: { id: slotId, tutorId: tutor.id }
+        });
+        if (!slot) throw new NotFoundException('Availability slot not found or access denied');
+
+        return this.prisma.tutorAvailability.update({
+            where: { id: slotId },
+            data: dto
+        });
+    }
+
+    async deleteTutorAvailabilitySlot(userId: number, slotId: number) {
+        const tutor = await this.prisma.tutor.findUnique({ where: { userId } });
+        if (!tutor) throw new NotFoundException('Tutor not found');
+
+        const slot = await this.prisma.tutorAvailability.findFirst({
+            where: { id: slotId, tutorId: tutor.id }
+        });
+        if (!slot) throw new NotFoundException('Availability slot not found or access denied');
+
+        return this.prisma.tutorAvailability.delete({
+            where: { id: slotId }
+        });
+    }
+
     async setStudentAvailability(userId: number, dto: SetAvailabilityDto) {
         const student = await this.prisma.student.findUnique({
             where: { userId },
@@ -55,6 +84,35 @@ export class SchedulingService {
                     endTime: slot.endTime,
                 })),
             });
+        });
+    }
+
+    async updateStudentAvailabilitySlot(userId: number, slotId: number, dto: UpdateAvailabilitySlotDto) {
+        const student = await this.prisma.student.findUnique({ where: { userId } });
+        if (!student) throw new NotFoundException('Student not found');
+
+        const slot = await this.prisma.studentAvailability.findFirst({
+            where: { id: slotId, studentId: student.id }
+        });
+        if (!slot) throw new NotFoundException('Availability slot not found or access denied');
+
+        return this.prisma.studentAvailability.update({
+            where: { id: slotId },
+            data: dto
+        });
+    }
+
+    async deleteStudentAvailabilitySlot(userId: number, slotId: number) {
+        const student = await this.prisma.student.findUnique({ where: { userId } });
+        if (!student) throw new NotFoundException('Student not found');
+
+        const slot = await this.prisma.studentAvailability.findFirst({
+            where: { id: slotId, studentId: student.id }
+        });
+        if (!slot) throw new NotFoundException('Availability slot not found or access denied');
+
+        return this.prisma.studentAvailability.delete({
+            where: { id: slotId }
         });
     }
 
