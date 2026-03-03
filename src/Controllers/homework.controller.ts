@@ -20,6 +20,18 @@ export class HomeworkController {
     }
 
     @UseGuards(AuthGuard('jwt'))
+    @Get('tutor-pending-submissions')
+    findTutorPendingSubmissions(@Request() req: any) {
+        return this.homeworkService.findTutorPendingSubmissions(req.user.id);
+    }
+
+    @UseGuards(AuthGuard('jwt'))
+    @Get('tutor-graded-submissions')
+    findTutorGradedSubmissions(@Request() req: any) {
+        return this.homeworkService.findTutorGradedSubmissions(req.user.id);
+    }
+
+    @UseGuards(AuthGuard('jwt'))
     @Get('my-submissions')
     findMySubmissions(@Request() req: any) {
         return this.homeworkService.getMySubmissions(req.user.id);
@@ -48,9 +60,10 @@ export class HomeworkController {
         return this.homeworkService.submit(req.user.id, submissionDto);
     }
 
+    @UseGuards(AuthGuard('jwt'))
     @Post('grade/:id')
-    grade(@Param('id', ParseIntPipe) id: number, @Body() gradeDto: GradeSubmissionDto) {
-        return this.homeworkService.grade(id, gradeDto);
+    grade(@Request() req: any, @Param('id', ParseIntPipe) id: number, @Body() gradeDto: GradeSubmissionDto) {
+        return this.homeworkService.grade(req.user.id, id, gradeDto);
     }
 
     @Get()

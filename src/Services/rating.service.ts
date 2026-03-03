@@ -6,7 +6,7 @@ import { CreateRatingDto, UpdateRatingDto } from '../DTOs/rating.dto';
 export class RatingService {
     constructor(private prisma: PrismaService) { }
 
-    async create(createRatingDto: CreateRatingDto) {
+    async create(userId: number, createRatingDto: CreateRatingDto) {
         const tutor = await this.prisma.tutor.findUnique({
             where: { id: createRatingDto.tutorId },
         });
@@ -15,8 +15,25 @@ export class RatingService {
             throw new NotFoundException(`Tutor with ID ${createRatingDto.tutorId} not found`);
         }
 
+        // Check if user has already rated this tutor
+        const existingRating = await this.prisma.rating.findUnique({
+            where: {
+                userId_tutorId: {
+                    userId,
+                    tutorId: createRatingDto.tutorId,
+                },
+            },
+        });
+
+        if (existingRating) {
+            throw new BadRequestException('You have already rated this tutor');
+        }
+
         const rating = await this.prisma.rating.create({
-            data: createRatingDto,
+            data: {
+                ...createRatingDto,
+                userId,
+            },
             include: {
                 tutor: {
                     include: {
@@ -26,6 +43,13 @@ export class RatingService {
                                 lastName: true,
                             },
                         },
+                    },
+                },
+                user: {
+                    select: {
+                        firstName: true,
+                        lastName: true,
+                        profilePicture: true,
                     },
                 },
             },
@@ -63,6 +87,13 @@ export class RatingService {
                         },
                     },
                 },
+                user: {
+                    select: {
+                        firstName: true,
+                        lastName: true,
+                        profilePicture: true,
+                    },
+                },
                 ratingLikes: {
                     select: {
                         id: true,
@@ -94,6 +125,13 @@ export class RatingService {
                         },
                     },
                 },
+                user: {
+                    select: {
+                        firstName: true,
+                        lastName: true,
+                        profilePicture: true,
+                    },
+                },
                 ratingLikes: {
                     select: {
                         id: true,
@@ -123,6 +161,13 @@ export class RatingService {
                                 lastName: true,
                             },
                         },
+                    },
+                },
+                user: {
+                    select: {
+                        firstName: true,
+                        lastName: true,
+                        profilePicture: true,
                     },
                 },
                 ratingLikes: {

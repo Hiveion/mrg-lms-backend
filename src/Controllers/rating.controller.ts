@@ -7,9 +7,10 @@ import { AuthGuard } from '@nestjs/passport';
 export class RatingController {
     constructor(private readonly ratingService: RatingService) { }
 
+    @UseGuards(AuthGuard('jwt'))
     @Post()
-    create(@Body() createRatingDto: CreateRatingDto) {
-        return this.ratingService.create(createRatingDto);
+    create(@Request() req: any, @Body() createRatingDto: CreateRatingDto) {
+        return this.ratingService.create(req.user.id, createRatingDto);
     }
 
     @Get()
