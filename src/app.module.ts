@@ -11,9 +11,10 @@ import { SessionModule } from './Modules/session.module';
 import { EnrollmentModule } from './Modules/enrollment.module';
 import { HomeworkModule } from './Modules/homework.module';
 import { RatingModule } from './Modules/rating.module';
+import { SchedulingModule } from './Modules/scheduling.module';
 
 @Module({
-  imports: [DatabaseModule, AuthModule, UsersModule, SubjectModule, ClassModule, SessionModule, EnrollmentModule, HomeworkModule, RatingModule],
+  imports: [DatabaseModule, AuthModule, UsersModule, SubjectModule, ClassModule, SessionModule, EnrollmentModule, HomeworkModule, RatingModule, SchedulingModule],
   controllers: [AppController],
   providers: [AppService],
 })

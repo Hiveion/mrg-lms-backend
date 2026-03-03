@@ -73,6 +73,16 @@ enum SubmissionStatus {
   GRADED
 }
 
+enum WeekDay {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+  SUNDAY
+}
+
 model User {
   id             Int        @id @default(autoincrement()) @map("user_id")
   email          String     @unique
@@ -111,6 +121,7 @@ model Tutor {
 
   classes Class[]
   ratings Rating[]
+  availabilities TutorAvailability[]
 
   @@map("tutors")
 }
@@ -125,6 +136,7 @@ model Student {
   parents ParentStudent[]
   enrollments Enrollment[]
   homeworkSubmissions HomeworkSubmission[]
+  availabilities StudentAvailability[]
 
   @@map("students")
 }
@@ -338,5 +350,31 @@ model SubmissionAnswer {
   question      HomeworkQuestion   @relation(fields: [questionId], references: [id], onDelete: Cascade)
 
   @@map("submission_answers")
+}
+
+model TutorAvailability {
+  id        Int      @id @default(autoincrement()) @map("availability_id")
+  tutorId   Int      @map("tutor_id")
+  day       WeekDay
+  startTime String   @map("start_time") // Using string for time like "14:00"
+  endTime   String   @map("end_time")   // Using string for time like "16:00"
+  createdAt DateTime @default(now()) @map("created_at")
+
+  tutor     Tutor    @relation(fields: [tutorId], references: [id], onDelete: Cascade)
+
+  @@map("tutor_availabilities")
+}
+
+model StudentAvailability {
+  id        Int      @id @default(autoincrement()) @map("availability_id")
+  studentId Int      @map("student_id")
+  day       WeekDay
+  startTime String   @map("start_time")
+  endTime   String   @map("end_time")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@map("student_availabilities")
 }
 
