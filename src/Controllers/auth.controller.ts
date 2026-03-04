@@ -3,7 +3,7 @@
 import { Controller, Post, Body, UseGuards, Request, Get, Put, HttpCode, HttpStatus, UnauthorizedException, Res } from '@nestjs/common';
 import type { Response } from 'express';
 import { AuthService } from '../Services/auth.service';
-import { RegisterDto, LoginDto } from '../DTOs/auth.dto';
+import { RegisterDto, LoginDto, ChangePasswordDto } from '../DTOs/auth.dto';
 import { UpdateProfileDto } from '../DTOs/user.dto';
 import { AuthGuard } from '@nestjs/passport';
 
@@ -64,5 +64,12 @@ export class AuthController {
     async updateProfile(@Request() req: any, @Body() updateProfileDto: UpdateProfileDto) {
         // Update user profile with the provided data
         return this.authService.updateUserProfile(req.user.id, updateProfileDto);
+    }
+
+    @Post('change-password')
+    @UseGuards(AuthGuard('jwt'))
+    @HttpCode(HttpStatus.OK)
+    async changePassword(@Request() req: any, @Body() dto: ChangePasswordDto) {
+        return this.authService.changePassword(req.user.id, dto.newPassword);
     }
 }

@@ -35,6 +35,7 @@ export class AuthService {
                 phoneNumber: user.phoneNumber,
                 userType: user.userType,
                 status: user.status,
+                mustChangePassword: user.mustChangePassword,
                 studentProfile: user.studentProfile,
                 tutorProfile: user.tutorProfile,
                 parentProfile: user.parentProfile,
@@ -187,4 +188,14 @@ export class AuthService {
         const { passwordHash, ...result } = updatedUser;
         return result;
     }
+
+    async changePassword(userId: number, newPassword: string) {
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+        await this.usersService.update(userId, {
+            passwordHash: hashedPassword,
+            mustChangePassword: false,
+        });
+        return { message: 'Password changed successfully' };
+    }
 }
+
