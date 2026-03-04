@@ -27,6 +27,18 @@ async function main() {
 
   const passwordHash = await bcrypt.hash('password123', 10);
 
+  // 0. Create Admin: Super Admin
+  const adminUser = await prisma.user.create({
+    data: {
+      email: 'admin@mrg-lms.com',
+      passwordHash,
+      firstName: 'Super',
+      lastName: 'Admin',
+      status: UserStatus.ACTIVE,
+      userType: UserRole.ADMIN,
+    },
+  });
+
   // 1. Create one Tutor: Dr. Robert Smith
   const tutorUser = await prisma.user.create({
     data: {

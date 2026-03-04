@@ -4,7 +4,6 @@
     "moduleResolution": "node",
     "rootDir": "./src",
     "outDir": "./dist",
-
     "esModuleInterop": true,
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
@@ -12,8 +11,6 @@
 
     "target": "ES2023",
     "sourceMap": true,
-    "removeComments": true,
-
     "baseUrl": "./",
     "incremental": false,
     "skipLibCheck": true,

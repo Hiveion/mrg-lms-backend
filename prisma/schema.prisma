@@ -96,6 +96,8 @@ model User {
   updatedAt      DateTime   @updatedAt @map("updated_at")
   status         UserStatus @default(INCOMPLETE)
   userType       UserRole?  @map("user_type")
+  mustChangePassword Boolean @default(false) @map("must_change_password")
+  invitationExpiresAt DateTime? @map("invitation_expires_at")
 
   // Relationships
   tutorProfile       Tutor?
