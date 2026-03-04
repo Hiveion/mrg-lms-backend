@@ -443,6 +443,112 @@ async function main() {
     });
   }
 
+  // 8b. Additional submissions for Robert Smith's classes
+  console.log('Seeding additional submissions for Robert Smith...');
+
+  // Bob: Graded Quiz in Class 3
+  await prisma.homeworkSubmission.create({
+    data: {
+      homeworkId: allHomeworks[6].id, // Class 3 Quiz
+      studentId: bobId,
+      status: SubmissionStatus.GRADED,
+      totalMarksAwarded: 18,
+      feedback: 'Good job on the short answer part.',
+      submittedAt: new Date(today.getTime() - 1 * 24 * 60 * 60 * 1000),
+      answers: {
+        create: [
+          {
+            questionId: allHomeworks[6].questions[0].id,
+            answerText: allHomeworks[6].questions[0].correctAnswer,
+            marksAwarded: 10,
+          },
+          {
+            questionId: allHomeworks[6].questions[1].id,
+            answerText: allHomeworks[6].questions[1].correctAnswer,
+            marksAwarded: 8,
+          },
+        ],
+      },
+    },
+  });
+
+  // Bob: Ungraded File in Class 3
+  await prisma.homeworkSubmission.create({
+    data: {
+      homeworkId: allHomeworks[7].id, // Class 3 File
+      studentId: bobId,
+      status: SubmissionStatus.SUBMITTED,
+      submittedAt: new Date(today.getTime() - 12 * 60 * 60 * 1000),
+      submissionFileUrl: 'https://example.com/bob_class3_project.pdf',
+    },
+  });
+
+  // Carol: Graded Quiz in Class 5
+  await prisma.homeworkSubmission.create({
+    data: {
+      homeworkId: allHomeworks[10].id, // Class 5 Quiz
+      studentId: carolId,
+      status: SubmissionStatus.GRADED,
+      totalMarksAwarded: 15,
+      feedback: 'Well done, though you missed one logic point.',
+      submittedAt: new Date(today.getTime() - 2 * 24 * 60 * 60 * 1000),
+      answers: {
+        create: [
+          {
+            questionId: allHomeworks[10].questions[0].id,
+            answerText: allHomeworks[10].questions[0].correctAnswer,
+            marksAwarded: 10,
+          },
+          {
+            questionId: allHomeworks[10].questions[1].id,
+            answerText: 'TRUE',
+            marksAwarded: 5,
+          },
+        ],
+      },
+    },
+  });
+
+  // Carol: Ungraded File in Class 5
+  await prisma.homeworkSubmission.create({
+    data: {
+      homeworkId: allHomeworks[11].id, // Class 5 File
+      studentId: carolId,
+      status: SubmissionStatus.SUBMITTED,
+      submittedAt: new Date(today.getTime() - 18 * 60 * 60 * 1000),
+      submissionFileUrl: 'https://example.com/carol_class5_project.pdf',
+    },
+  });
+
+  // Carol: Ungraded Quiz in Class 6
+  await prisma.homeworkSubmission.create({
+    data: {
+      homeworkId: allHomeworks[12].id, // Class 6 Quiz
+      studentId: carolId,
+      status: SubmissionStatus.SUBMITTED,
+      submittedAt: new Date(today.getTime() - 6 * 60 * 60 * 1000),
+      answers: {
+        create: allHomeworks[12].questions.map((q: any) => ({
+          questionId: q.id,
+          answerText: q.correctAnswer,
+        })),
+      },
+    },
+  });
+
+  // Carol: Graded File in Class 6
+  await prisma.homeworkSubmission.create({
+    data: {
+      homeworkId: allHomeworks[13].id, // Class 6 File
+      studentId: carolId,
+      status: SubmissionStatus.GRADED,
+      totalMarksAwarded: 88,
+      feedback: 'Solid work. See my annotations for minor improvements.',
+      submittedAt: new Date(today.getTime() - 3 * 24 * 60 * 60 * 1000),
+      submissionFileUrl: 'https://example.com/carol_class6_project_v2.pdf',
+    },
+  });
+
   // 9. Ratings & Likes for Dr. Robert Smith
   console.log('Seeding ratings and likes...');
 
@@ -530,7 +636,24 @@ async function main() {
     });
   }
 
-  console.log(`Seeded ${ratingsData.length} ratings with ${likeMap.length} likes.`);
+  // 10. Availability Seeding
+  console.log('Seeding availability...');
+  const { WeekDay } = require('@prisma/client');
+
+  await prisma.tutorAvailability.createMany({
+    data: [
+      { tutorId, day: WeekDay.MONDAY, startTime: '14:00', endTime: '18:00' },
+      { tutorId, day: WeekDay.WEDNESDAY, startTime: '10:00', endTime: '12:00' },
+    ],
+  });
+
+  await prisma.studentAvailability.createMany({
+    data: [
+      { studentId, day: WeekDay.MONDAY, startTime: '15:00', endTime: '17:00' }, // Alice
+      { studentId: bobId, day: WeekDay.WEDNESDAY, startTime: '11:00', endTime: '14:00' }, // Bob
+    ],
+  });
+
   console.log('Seeding finished successfully.');
 }
 
