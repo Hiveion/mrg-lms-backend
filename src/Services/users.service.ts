@@ -9,10 +9,7 @@ export class UsersService {
 
     async create(data: Prisma.UserCreateInput): Promise<User> {
         return this.prisma.user.create({
-            data: {
-                ...data,
-                status: UserStatus.PENDING, // Default status
-            },
+            data,
             include: {
                 tutorProfile: true,
                 studentProfile: true,
