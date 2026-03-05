@@ -1,8 +1,8 @@
 import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../Database/prisma.service';
 import * as bcrypt from 'bcrypt';
-import { CreateUserByAdminDto, InviteUserDto } from '../DTOs/admin.dto';
-import { UserStatus, UserRole } from '@prisma/client';
+import { CreateUserByAdminDto, InviteUserDto, AssignClassDto } from '../DTOs/admin.dto';
+import { UserStatus, UserRole, EnrollmentStatus, SessionStatus, WeekDay } from '@prisma/client';
 import { MailService } from './mail.service';
 
 import { JwtService } from '@nestjs/jwt';
@@ -117,6 +117,107 @@ export class AdminService {
             message: 'User created successfully',
             user: result,
         };
+    }
+
+    async assignClass(dto: AssignClassDto) {
+        const { studentId, tutorId, subjectId, schedule, startDate, numberOfWeeks = 4, grade } = dto;
+
+        // Verify entities exist
+        const student = await this.prisma.student.findUnique({ where: { id: studentId }, include: { user: true } });
+        const tutor = await this.prisma.tutor.findUnique({ where: { id: tutorId }, include: { user: true } });
+        const subject = await this.prisma.subject.findUnique({ where: { id: subjectId } });
+
+        if (!student || !tutor || !subject) {
+            throw new NotFoundException('Student, Tutor, or Subject not found');
+        }
+
+        const className = `${subject.name} with ${student.user.firstName}`;
+
+        return this.prisma.$transaction(async (tx) => {
+            // 1. Create Class
+            const newClass = await tx.class.create({
+                data: {
+                    name: className,
+                    subjectId,
+                    tutorId,
+                    grade: grade || student.grade,
+                    isActive: true,
+                    isDemo: false,
+                    frequency: dto.frequency || schedule.length,
+                    schedules: {
+                        create: schedule.map(slot => ({
+                            day: slot.day,
+                            startTime: slot.startTime,
+                            duration: slot.duration
+                        }))
+                    }
+                }
+            });
+
+            // 2. Enroll Student
+            await tx.enrollment.create({
+                data: {
+                    studentId,
+                    classId: newClass.id,
+                    status: EnrollmentStatus.ACTIVE,
+                    assignedPrice: 0,
+                    confirmationDate: new Date(),
+                }
+            });
+
+            // 3. Generate Sessions
+            const sessionData: any[] = [];
+            const start = startDate ? new Date(startDate) : new Date();
+
+            for (let i = 0; i < numberOfWeeks; i++) {
+                for (const slot of schedule) {
+                    const sessionDate = this.getNextOccurrence(start, slot.day, i);
+                    const [hours, minutes] = slot.startTime.split(':').map(Number);
+                    sessionDate.setHours(hours, minutes, 0, 0);
+
+                    sessionData.push({
+                        classId: newClass.id,
+                        dateTime: sessionDate,
+                        duration: slot.duration,
+                        status: SessionStatus.SCHEDULED,
+                    });
+                }
+            }
+
+            if (sessionData.length > 0) {
+                await tx.session.createMany({
+                    data: sessionData,
+                });
+            }
+
+            return tx.class.findUnique({
+                where: { id: newClass.id },
+                include: {
+                    subject: true,
+                    tutor: { include: { user: true } },
+                    sessions: true,
+                    schedules: true,
+                    enrollments: { include: { student: { include: { user: true } } } }
+                }
+            });
+        });
+    }
+
+    private getNextOccurrence(startDate: Date, targetDay: WeekDay, weekOffset: number): Date {
+        const daysToIndex = {
+            'SUNDAY': 0, 'MONDAY': 1, 'TUESDAY': 2, 'WEDNESDAY': 3, 'THURSDAY': 4, 'FRIDAY': 5, 'SATURDAY': 6
+        };
+        const targetDayNum = daysToIndex[targetDay];
+        const result = new Date(startDate);
+        const currentDayNum = result.getDay();
+
+        let diff = targetDayNum - currentDayNum;
+        // If the day has already passed this week, move to next week for the first occurrence
+        // If diff is 0, it means it's today. We'll count it as the first occurrence.
+        if (diff < 0) diff += 7;
+
+        result.setDate(result.getDate() + diff + (weekOffset * 7));
+        return result;
     }
 }
 

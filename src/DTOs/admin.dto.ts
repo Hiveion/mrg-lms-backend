@@ -1,5 +1,6 @@
-import { IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, MinLength } from 'class-validator';
-import { UserRole } from '@prisma/client';
+import { IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, MinLength, IsInt, IsArray, ValidateNested } from 'class-validator';
+import { Type } from 'class-transformer';
+import { UserRole, WeekDay } from '@prisma/client';
 
 export class InviteUserDto {
     @IsEmail()
@@ -32,4 +33,53 @@ export class CreateUserByAdminDto {
     @IsEnum(UserRole)
     @IsNotEmpty()
     userType: UserRole;
+}
+
+export class ClassScheduleDto {
+    @IsEnum(WeekDay)
+    @IsNotEmpty()
+    day: WeekDay;
+
+    @IsString()
+    @IsNotEmpty()
+    startTime: string; // "HH:mm"
+
+    @IsInt()
+    @IsNotEmpty()
+    duration: number; // in minutes
+}
+
+export class AssignClassDto {
+    @IsInt()
+    @IsNotEmpty()
+    studentId: number;
+
+    @IsInt()
+    @IsNotEmpty()
+    tutorId: number;
+
+    @IsInt()
+    @IsNotEmpty()
+    subjectId: number;
+
+    @IsString()
+    @IsOptional()
+    grade?: string;
+
+    @IsArray()
+    @ValidateNested({ each: true })
+    @Type(() => ClassScheduleDto)
+    schedule: ClassScheduleDto[];
+
+    @IsString()
+    @IsOptional()
+    startDate?: string;
+
+    @IsInt()
+    @IsOptional()
+    frequency?: number;
+
+    @IsInt()
+    @IsOptional()
+    numberOfWeeks?: number;
 }

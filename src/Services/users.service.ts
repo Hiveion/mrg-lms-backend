@@ -180,4 +180,26 @@ export class UsersService {
             orderBy: { averageRating: 'desc' },
         });
     }
+
+    async findAllStudents() {
+        return this.prisma.student.findMany({
+            include: {
+                user: {
+                    select: {
+                        id: true,
+                        firstName: true,
+                        lastName: true,
+                        email: true,
+                        profilePicture: true,
+                        phoneNumber: true,
+                    },
+                },
+            },
+            orderBy: {
+                user: {
+                    firstName: 'asc'
+                }
+            }
+        });
+    }
 }

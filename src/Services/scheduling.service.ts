@@ -268,6 +268,59 @@ export class SchedulingService {
         return matchedTutors;
     }
 
+    async getAllMatchedSlots() {
+        const allTutors = await this.prisma.tutor.findMany({
+            include: {
+                user: {
+                    select: {
+                        id: true,
+                        firstName: true,
+                        lastName: true,
+                        email: true,
+                    },
+                },
+                availabilities: true,
+                classes: {
+                    include: { subject: true }
+                }
+            }
+        });
+
+        const allStudents = await this.prisma.student.findMany({
+            include: {
+                user: {
+                    select: {
+                        id: true,
+                        firstName: true,
+                        lastName: true,
+                        email: true,
+                    },
+                },
+                availabilities: true,
+            }
+        });
+
+        const matches: any[] = [];
+
+        for (const tutor of allTutors) {
+            for (const student of allStudents) {
+                const overlaps = this.calculateOverlapsInternal(tutor.availabilities, student.availabilities);
+                if (overlaps.length > 0) {
+                    matches.push({
+                        tutorId: tutor.id,
+                        tutorName: `${tutor.user.firstName} ${tutor.user.lastName}`,
+                        studentId: student.id,
+                        studentName: `${student.user.firstName} ${student.user.lastName}`,
+                        overlaps,
+                        subjects: Array.from(new Set(tutor.classes.map(c => c.subject.name)))
+                    });
+                }
+            }
+        }
+
+        return matches;
+    }
+
     private calculateOverlapsInternal(tutorAvail: any[], studentAvail: any[]) {
         const overlaps: { day: WeekDay; startTime: string; endTime: string }[] = [];
 

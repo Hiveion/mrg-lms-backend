@@ -201,19 +201,35 @@ model Class {
   grade               String?
   isActive            Boolean  @default(true) @map("is_active")
   isDemo              Boolean  @default(true) @map("is_demo")
+  frequency           Int      @default(1)
   currentStudentCount Int      @default(0) @map("current_student_count")
   maxStudentCount     Int?     @map("max_student_count")
   classFee            Float    @default(0.0) @map("class_fee")
   createdAt           DateTime @default(now()) @map("created_at")
   updatedAt           DateTime @updatedAt @map("updated_at")
 
-  subject  Subject   @relation(fields: [subjectId], references: [id])
-  tutor   Tutor     @relation(fields: [tutorId], references: [id])
-  sessions Session[]
+  subject    Subject      @relation(fields: [subjectId], references: [id])
+  tutor      Tutor        @relation(fields: [tutorId], references: [id])
+  sessions   Session[]
+  schedules  ClassSchedule[]
   enrollments Enrollment[]
-  homeworks Homework[]
+  homeworks  Homework[]
 
   @@map("classes")
+}
+
+model ClassSchedule {
+  id        Int      @id @default(autoincrement()) @map("schedule_id")
+  classId   Int      @map("class_id")
+  day       WeekDay
+  startTime String   @map("start_time") // HH:mm
+  duration  Int      // in minutes
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  class     Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+
+  @@map("class_schedules")
 }
 
 model Rating {
