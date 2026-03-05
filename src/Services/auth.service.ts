@@ -18,6 +18,9 @@ export class AuthService {
     async validateUser(email: string, pass: string): Promise<any> {
         const user = await this.usersService.findOne(email);
         if (user && user.passwordHash && (await bcrypt.compare(pass, user.passwordHash))) {
+            if (user.status === UserStatus.INACTIVE) {
+                throw new UnauthorizedException('Your account has been deactivated. Please contact support.');
+            }
             const { passwordHash, ...result } = user;
             return result;
         }
@@ -159,6 +162,9 @@ export class AuthService {
                 status: UserStatus.INCOMPLETE,
             });
         } else {
+            if (user.status === UserStatus.INACTIVE) {
+                throw new UnauthorizedException('Your account has been deactivated. Please contact support.');
+            }
             // Update googleId and profilePicture if not present
             if (!user.googleId || !user.profilePicture) {
                 // We need an update method in usersService, but for now we can rely on user already existing
