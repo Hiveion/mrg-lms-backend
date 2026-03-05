@@ -79,7 +79,9 @@ export class AuthService {
                 lastName: registerDto.lastName,
                 phoneNumber: registerDto.phoneNumber,
                 userType: registerDto.userType || existingUser.userType,
-                status: UserStatus.INCOMPLETE,
+                status: (registerDto.userType === UserRole.TUTOR || registerDto.userType === UserRole.STUDENT)
+                    ? UserStatus.PENDING
+                    : UserStatus.ACTIVE,
                 invitationExpiresAt: null, // Clear expiry
             } as any);
 
@@ -102,7 +104,9 @@ export class AuthService {
                 lastName: registerDto.lastName,
                 phoneNumber: registerDto.phoneNumber,
                 userType: registerDto.userType,
-                status: UserStatus.INCOMPLETE,
+                status: (registerDto.userType === UserRole.TUTOR || registerDto.userType === UserRole.STUDENT)
+                    ? UserStatus.PENDING
+                    : UserStatus.ACTIVE,
                 tutorProfile: registerDto.userType === UserRole.TUTOR ? {
                     create: {
                         bio: registerDto.bio,
@@ -188,8 +192,10 @@ export class AuthService {
             // Or just return user
         }
 
-        // Only TUTORs need approval (status: PENDING), all other roles are ACTIVE immediately
-        const status = completeDto.userType === UserRole.TUTOR ? UserStatus.PENDING : UserStatus.ACTIVE;
+        // Both TUTORs and STUDENTs need approval (status: PENDING), all other roles are ACTIVE immediately
+        const status = (completeDto.userType === UserRole.TUTOR || completeDto.userType === UserRole.STUDENT)
+            ? UserStatus.PENDING
+            : UserStatus.ACTIVE;
 
         return this.usersService.update(userId, {
             userType: completeDto.userType,
