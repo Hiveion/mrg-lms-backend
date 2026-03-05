@@ -102,7 +102,7 @@ export class AdminService {
                 firstName: createUserByAdminDto.firstName,
                 lastName: createUserByAdminDto.lastName,
                 userType: createUserByAdminDto.userType,
-                status: status,
+                status: UserStatus.INCOMPLETE, // Start as incomplete to force profile setup
                 mustChangePassword: true,
             },
         });
