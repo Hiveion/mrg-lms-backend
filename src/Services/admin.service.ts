@@ -131,7 +131,7 @@ export class AdminService {
             throw new NotFoundException('Student, Tutor, or Subject not found');
         }
 
-        const className = `${subject.name} with ${student.user.firstName}`;
+        const className = dto.name || `${subject.name} with ${student.user.firstName}`;
 
         return this.prisma.$transaction(async (tx) => {
             // 1. Create Class
@@ -144,6 +144,9 @@ export class AdminService {
                     isActive: true,
                     isDemo: false,
                     frequency: dto.frequency || schedule.length,
+                    maxStudentCount: dto.maxStudents || 20,
+                    classFee: dto.baseFee || 0,
+                    currentStudentCount: 1, // First student being enrolled
                     schedules: {
                         create: schedule.map(slot => ({
                             day: slot.day,
@@ -160,7 +163,7 @@ export class AdminService {
                     studentId,
                     classId: newClass.id,
                     status: EnrollmentStatus.ACTIVE,
-                    assignedPrice: 0,
+                    assignedPrice: dto.studentPrice || dto.baseFee || 0,
                     confirmationDate: new Date(),
                 }
             });
