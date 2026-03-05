@@ -58,14 +58,14 @@ export class AuthService {
         const existingUser = await this.usersService.findOne(registerDto.email);
 
         if (existingUser) {
-            // Check if it's a pending invitation
-            if (existingUser.status === UserStatus.PENDING) {
+            // Check if it's an invited user pending setup
+            if (existingUser.status === UserStatus.INCOMPLETE) {
                 // Check if invitation has expired
                 const invitationExpiresAt = (existingUser as any).invitationExpiresAt;
                 if (invitationExpiresAt && new Date() > new Date(invitationExpiresAt)) {
                     throw new UnauthorizedException('Invitation has expired. Please ask for a new one.');
                 }
-                // Continue with registration for this existing pending user
+                // Continue with registration for this invited user
             } else {
                 throw new ConflictException('User with this email already exists');
             }
@@ -74,8 +74,8 @@ export class AuthService {
         const hashedPassword = await bcrypt.hash(registerDto.password, 10);
 
         let user;
-        if (existingUser && existingUser.status === UserStatus.PENDING) {
-            // Update the existing pending user
+        if (existingUser && existingUser.status === UserStatus.INCOMPLETE) {
+            // Update the invited user
             user = await this.usersService.update(existingUser.id, {
                 passwordHash: hashedPassword,
                 firstName: registerDto.firstName,

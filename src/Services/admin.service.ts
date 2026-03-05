@@ -25,8 +25,8 @@ export class AdminService {
             where: { email: inviteUserDto.email },
         });
 
-        if (existingUser && existingUser.status !== UserStatus.PENDING) {
-            throw new ConflictException('User with this email already exists and is not pending');
+        if (existingUser && existingUser.status !== UserStatus.INCOMPLETE) {
+            throw new ConflictException('User with this email already exists and is not pending setup');
         }
 
         // Set invitation expiry to 4 hours from now
@@ -35,7 +35,7 @@ export class AdminService {
 
         let user;
         if (existingUser) {
-            // Update existing pending user
+            // Update existing incomplete user
             user = await this.prisma.user.update({
                 where: { id: existingUser.id },
                 data: {
@@ -44,14 +44,14 @@ export class AdminService {
                 } as any,
             });
         } else {
-            // Create new pending user
+            // Create new incomplete user
             user = await this.prisma.user.create({
                 data: {
                     email: inviteUserDto.email,
                     firstName: '',
                     lastName: '',
                     userType: inviteUserDto.userType || null,
-                    status: UserStatus.PENDING,
+                    status: UserStatus.INCOMPLETE,
                     invitationExpiresAt: expiresAt,
                 } as any,
             });
