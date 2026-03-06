@@ -193,6 +193,13 @@ export class AdminService {
                 });
             }
 
+            // 4. Punch the class slot out of the tutor's and student's availability calendars
+            for (const slot of schedule) {
+                const classEnd = this.toTimeStr(this.toMinutes(slot.startTime) + slot.duration);
+                await this.subtractFromTutorAvailability(tx, tutorId, slot.day as WeekDay, slot.startTime, classEnd);
+                await this.subtractFromStudentAvailability(tx, studentId, slot.day as WeekDay, slot.startTime, classEnd);
+            }
+
             return tx.class.findUnique({
                 where: { id: newClass.id },
                 include: {
@@ -215,12 +222,106 @@ export class AdminService {
         const currentDayNum = result.getDay();
 
         let diff = targetDayNum - currentDayNum;
-        // If the day has already passed this week, move to next week for the first occurrence
-        // If diff is 0, it means it's today. We'll count it as the first occurrence.
         if (diff < 0) diff += 7;
 
         result.setDate(result.getDate() + diff + (weekOffset * 7));
         return result;
+    }
+
+    /** Convert "HH:MM" to total minutes */
+    private toMinutes(time: string): number {
+        const [h, m] = time.split(':').map(Number);
+        return h * 60 + m;
+    }
+
+    /** Convert total minutes back to "HH:MM" */
+    private toTimeStr(minutes: number): string {
+        const h = Math.floor(minutes / 60) % 24;
+        const m = minutes % 60;
+        return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+    }
+
+    /**
+     * Overlapping existing slots are deleted and the non-overlapping fragments re-created.
+     */
+    private async subtractFromTutorAvailability(
+        tx: any,
+        tutorId: number,
+        day: WeekDay,
+        classStart: string,
+        classEnd: string,
+    ): Promise<void> {
+        const csMin = this.toMinutes(classStart);
+        const ceMin = this.toMinutes(classEnd);
+
+        const all = await tx.tutorAvailability.findMany({ where: { tutorId, day } });
+
+        for (const slot of all) {
+            const sStart = this.toMinutes(slot.startTime);
+            const sEnd = this.toMinutes(slot.endTime);
+
+            // Skip if no overlap
+            if (sEnd <= csMin || sStart >= ceMin) continue;
+
+            // Delete the original slot
+            await tx.tutorAvailability.delete({ where: { id: slot.id } });
+
+            // Re-create left fragment: [sStart, csMin) if it exists
+            if (sStart < csMin) {
+                await tx.tutorAvailability.create({
+                    data: { tutorId, day, startTime: slot.startTime, endTime: classStart },
+                });
+            }
+
+            // Re-create right fragment: [ceMin, sEnd) if it exists
+            if (sEnd > ceMin) {
+                await tx.tutorAvailability.create({
+                    data: { tutorId, day, startTime: classEnd, endTime: slot.endTime },
+                });
+            }
+            // If the class slot fully consumes the availability slot, it's just deleted — nothing to re-create.
+        }
+    }
+
+    /**
+     * Punch [classStart, classEnd) out of the student's availability on the given day.
+     */
+    private async subtractFromStudentAvailability(
+        tx: any,
+        studentId: number,
+        day: WeekDay,
+        classStart: string,
+        classEnd: string,
+    ): Promise<void> {
+        const csMin = this.toMinutes(classStart);
+        const ceMin = this.toMinutes(classEnd);
+
+        const all = await tx.studentAvailability.findMany({ where: { studentId, day } });
+
+        for (const slot of all) {
+            const sStart = this.toMinutes(slot.startTime);
+            const sEnd = this.toMinutes(slot.endTime);
+
+            // Skip if no overlap
+            if (sEnd <= csMin || sStart >= ceMin) continue;
+
+            // Delete the original slot
+            await tx.studentAvailability.delete({ where: { id: slot.id } });
+
+            // Re-create left fragment: [sStart, csMin) if it exists
+            if (sStart < csMin) {
+                await tx.studentAvailability.create({
+                    data: { studentId, day, startTime: slot.startTime, endTime: classStart },
+                });
+            }
+
+            // Re-create right fragment: [ceMin, sEnd) if it exists
+            if (sEnd > ceMin) {
+                await tx.studentAvailability.create({
+                    data: { studentId, day, startTime: classEnd, endTime: slot.endTime },
+                });
+            }
+        }
     }
 }
 
