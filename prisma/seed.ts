@@ -105,6 +105,8 @@ async function main() {
 
   const tutorId = tutorUser.tutorProfile!.id;
   const studentId = studentUser.studentProfile!.id;
+  const bobId = studentUser2.studentProfile!.id;
+  const carolId = studentUser3.studentProfile!.id;
 
   // 3. Create 10 Subjects
   const subjectData = [
@@ -244,7 +246,6 @@ async function main() {
     });
   }
 
-  const bobId = studentUser2.studentProfile!.id;
   const bobEnrolled = classes.slice(2, 5);
   for (const c of bobEnrolled) {
     await prisma.enrollment.create({
@@ -257,7 +258,6 @@ async function main() {
     });
   }
 
-  const carolId = studentUser3.studentProfile!.id;
   const carolEnrolled = classes.slice(4, 7);
   for (const c of carolEnrolled) {
     await prisma.enrollment.create({
@@ -711,20 +711,62 @@ async function main() {
   }
 
   // 10. Availability Seeding
+  // Goal: give each tutor/student 3 broad windows across different days,
+  // with deliberate overlaps so an admin can assign a class and watch
+  // the interval-subtraction logic split / trim / delete availability entries.
+  //
+  // Overlap map (what a freshly assigned class could be):
+  //   MONDAY    14:00 – 16:00  →  tutor 14:00-18:00  overlaps  alice 14:00-17:00
+  //   WEDNESDAY 10:00 – 11:30  →  tutor 09:00-12:00  overlaps  bob   09:30-13:00
+  //   FRIDAY    15:00 – 16:30  →  tutor 13:00-17:00  overlaps  carol 14:00-18:00
   console.log('Seeding availability...');
   const { WeekDay } = require('@prisma/client');
 
+  // ── Tutor Availability (Robert) ──────────────────────────────────────────
   await prisma.tutorAvailability.createMany({
     data: [
+      // Monday  14:00 – 18:00  (overlaps Alice 14:00-17:00)
       { tutorId, day: WeekDay.MONDAY, startTime: '14:00', endTime: '18:00' },
-      { tutorId, day: WeekDay.WEDNESDAY, startTime: '10:00', endTime: '12:00' },
+      // Wednesday 09:00 – 12:00  (overlaps Bob 09:30-13:00)
+      { tutorId, day: WeekDay.WEDNESDAY, startTime: '09:00', endTime: '12:00' },
+      // Friday  13:00 – 17:00  (overlaps Carol 14:00-18:00)
+      { tutorId, day: WeekDay.FRIDAY, startTime: '13:00', endTime: '17:00' },
     ],
   });
 
+  // ── Alice (Student 1) ────────────────────────────────────────────────────
   await prisma.studentAvailability.createMany({
     data: [
-      { studentId, day: WeekDay.MONDAY, startTime: '15:00', endTime: '17:00' }, // Alice
-      { studentId: bobId, day: WeekDay.WEDNESDAY, startTime: '11:00', endTime: '14:00' }, // Bob
+      // Monday  14:00 – 17:00  (overlaps tutor 14:00-18:00  ✓)
+      { studentId, day: WeekDay.MONDAY, startTime: '14:00', endTime: '17:00' },
+      // Thursday  10:00 – 12:30
+      { studentId, day: WeekDay.THURSDAY, startTime: '10:00', endTime: '12:30' },
+      // Saturday  09:00 – 11:00
+      { studentId, day: WeekDay.SATURDAY, startTime: '09:00', endTime: '11:00' },
+    ],
+  });
+
+  // ── Bob (Student 2) ──────────────────────────────────────────────────────
+  await prisma.studentAvailability.createMany({
+    data: [
+      // Wednesday  09:30 – 13:00  (overlaps tutor 09:00-12:00  ✓)
+      { studentId: bobId, day: WeekDay.WEDNESDAY, startTime: '09:30', endTime: '13:00' },
+      // Monday  16:00 – 18:30
+      { studentId: bobId, day: WeekDay.MONDAY, startTime: '16:00', endTime: '18:30' },
+      // Friday  10:00 – 13:00
+      { studentId: bobId, day: WeekDay.FRIDAY, startTime: '10:00', endTime: '13:00' },
+    ],
+  });
+
+  // ── Carol (Student 3) ────────────────────────────────────────────────────
+  await prisma.studentAvailability.createMany({
+    data: [
+      // Friday  14:00 – 18:00  (overlaps tutor 13:00-17:00  ✓)
+      { studentId: carolId, day: WeekDay.FRIDAY, startTime: '14:00', endTime: '18:00' },
+      // Tuesday  09:00 – 11:00
+      { studentId: carolId, day: WeekDay.TUESDAY, startTime: '09:00', endTime: '11:00' },
+      // Saturday  13:00 – 16:00
+      { studentId: carolId, day: WeekDay.SATURDAY, startTime: '13:00', endTime: '16:00' },
     ],
   });
 

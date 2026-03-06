@@ -213,6 +213,54 @@ export class AdminService {
         });
     }
 
+    async getMatchingSlots(tutorId: number, studentId: number) {
+        const [tutorSlots, studentSlots] = await Promise.all([
+            this.prisma.tutorAvailability.findMany({ where: { tutorId } }),
+            this.prisma.studentAvailability.findMany({ where: { studentId } }),
+        ]);
+
+        const matchingSlots: {
+            day: string;
+            startTime: string;
+            endTime: string;
+            maxDuration: number;
+        }[] = [];
+
+        for (const tSlot of tutorSlots) {
+            const tStart = this.toMinutes(tSlot.startTime);
+            const tEnd = this.toMinutes(tSlot.endTime);
+
+            for (const sSlot of studentSlots) {
+                if (sSlot.day !== tSlot.day) continue;
+
+                const sStart = this.toMinutes(sSlot.startTime);
+                const sEnd = this.toMinutes(sSlot.endTime);
+
+                // Compute overlap window
+                const overlapStart = Math.max(tStart, sStart);
+                const overlapEnd = Math.min(tEnd, sEnd);
+
+                if (overlapEnd > overlapStart) {
+                    matchingSlots.push({
+                        day: tSlot.day,
+                        startTime: this.toTimeStr(overlapStart),
+                        endTime: this.toTimeStr(overlapEnd),
+                        maxDuration: overlapEnd - overlapStart,
+                    });
+                }
+            }
+        }
+
+        // Sort by day order then startTime
+        const dayOrder = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
+        matchingSlots.sort((a, b) => {
+            const dayDiff = dayOrder.indexOf(a.day) - dayOrder.indexOf(b.day);
+            return dayDiff !== 0 ? dayDiff : this.toMinutes(a.startTime) - this.toMinutes(b.startTime);
+        });
+
+        return matchingSlots;
+    }
+
     private getNextOccurrence(startDate: Date, targetDay: WeekDay, weekOffset: number): Date {
         const daysToIndex = {
             'SUNDAY': 0, 'MONDAY': 1, 'TUESDAY': 2, 'WEDNESDAY': 3, 'THURSDAY': 4, 'FRIDAY': 5, 'SATURDAY': 6

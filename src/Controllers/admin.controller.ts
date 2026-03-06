@@ -1,4 +1,4 @@
-import { Controller, Post, Body, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Post, Body, Query, UseGuards, Request } from '@nestjs/common';
 import { AdminService } from '../Services/admin.service';
 import { CreateUserByAdminDto, InviteUserDto, AssignClassDto } from '../DTOs/admin.dto';
 import { AuthGuard } from '@nestjs/passport';
@@ -25,5 +25,13 @@ export class AdminController {
     @Post('assign-class')
     async assignClass(@Body() assignClassDto: AssignClassDto) {
         return this.adminService.assignClass(assignClassDto);
+    }
+
+    @Get('matching-slots')
+    async getMatchingSlots(
+        @Query('tutorId') tutorId: string,
+        @Query('studentId') studentId: string,
+    ) {
+        return this.adminService.getMatchingSlots(Number(tutorId), Number(studentId));
     }
 }
