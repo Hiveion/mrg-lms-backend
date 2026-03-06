@@ -15,6 +15,7 @@ async function main() {
   await prisma.homeworkQuestion.deleteMany();
   await prisma.homework.deleteMany();
   await prisma.session.deleteMany();
+  await prisma.classSchedule.deleteMany();
   await prisma.enrollment.deleteMany();
   await prisma.class.deleteMany();
   await prisma.subject.deleteMany();
@@ -128,34 +129,107 @@ async function main() {
   }
 
   // 4. Create 10 Classes
+  // schedules: array of { day, startTime, duration } entries for each class
   const classData = [
-    { name: 'Advanced Calculus BC', fee: 150.0 },
-    { name: 'Quantum Mechanics Intro', fee: 180.0 },
-    { name: 'Organic Chemistry Lab', fee: 160.0 },
-    { name: 'Molecular Genetics', fee: 140.0 },
-    { name: 'The Industrial Revolution', fee: 120.0 },
-    { name: 'Climate Change Analytics', fee: 130.0 },
-    { name: 'Shakespearean Drama', fee: 110.0 },
-    { name: 'Full-stack Web Dev (React/Nest)', fee: 200.0 },
-    { name: 'International Trade Policy', fee: 140.0 },
-    { name: 'Modern Digital Painting', fee: 120.0 },
+    {
+      name: 'Advanced Calculus BC', fee: 150.0,
+      schedules: [
+        { day: 'MONDAY', startTime: '14:00', duration: 90 },
+        { day: 'THURSDAY', startTime: '14:00', duration: 90 },
+      ],
+    },
+    {
+      name: 'Quantum Mechanics Intro', fee: 180.0,
+      schedules: [
+        { day: 'TUESDAY', startTime: '10:00', duration: 90 },
+        { day: 'FRIDAY', startTime: '10:00', duration: 90 },
+      ],
+    },
+    {
+      name: 'Organic Chemistry Lab', fee: 160.0,
+      schedules: [
+        { day: 'WEDNESDAY', startTime: '13:00', duration: 120 },
+        { day: 'SATURDAY', startTime: '09:00', duration: 120 },
+      ],
+    },
+    {
+      name: 'Molecular Genetics', fee: 140.0,
+      schedules: [
+        { day: 'MONDAY', startTime: '16:00', duration: 90 },
+        { day: 'WEDNESDAY', startTime: '16:00', duration: 90 },
+      ],
+    },
+    {
+      name: 'The Industrial Revolution', fee: 120.0,
+      schedules: [
+        { day: 'TUESDAY', startTime: '15:00', duration: 60 },
+      ],
+    },
+    {
+      name: 'Climate Change Analytics', fee: 130.0,
+      schedules: [
+        { day: 'THURSDAY', startTime: '11:00', duration: 60 },
+      ],
+    },
+    {
+      name: 'Shakespearean Drama', fee: 110.0,
+      schedules: [
+        { day: 'FRIDAY', startTime: '14:00', duration: 90 },
+        { day: 'SUNDAY', startTime: '10:00', duration: 90 },
+      ],
+    },
+    {
+      name: 'Full-stack Web Dev (React/Nest)', fee: 200.0,
+      schedules: [
+        { day: 'SATURDAY', startTime: '10:00', duration: 120 },
+        { day: 'SUNDAY', startTime: '14:00', duration: 120 },
+      ],
+    },
+    {
+      name: 'International Trade Policy', fee: 140.0,
+      schedules: [
+        { day: 'WEDNESDAY', startTime: '09:00', duration: 90 },
+      ],
+    },
+    {
+      name: 'Modern Digital Painting', fee: 120.0,
+      schedules: [
+        { day: 'SATURDAY', startTime: '15:00', duration: 90 },
+      ],
+    },
   ];
 
   const classes: Class[] = [];
   for (let i = 0; i < 10; i++) {
+    const cd = classData[i];
     const classItem = await prisma.class.create({
       data: {
-        name: classData[i].name,
+        name: cd.name,
         subjectId: subjects[i].id,
         tutorId: tutorId,
         grade: 'Grade 12',
         isActive: true,
-        classFee: classData[i].fee,
+        classFee: cd.fee,
         maxStudentCount: 25,
+        frequency: cd.schedules.length,
       },
     });
     classes.push(classItem);
+
+    // Create schedule entries for this class
+    for (const sched of cd.schedules) {
+      await prisma.classSchedule.create({
+        data: {
+          classId: classItem.id,
+          day: sched.day as any,
+          startTime: sched.startTime,
+          duration: sched.duration,
+        },
+      });
+    }
   }
+  console.log('Class schedules seeded.');
+
 
   // 5. Enroll Alice in first 5 classes, Bob in 3, Carol in 3
   const aliceEnrolled = classes.slice(0, 5);
