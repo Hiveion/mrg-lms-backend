@@ -1,0 +1,206 @@
+import {
+    Injectable,
+    NotFoundException,
+    ForbiddenException,
+    BadRequestException,
+} from '@nestjs/common';
+import { PrismaService } from '../Database/prisma.service';
+import { CreateRescheduleRequestDto, RespondRescheduleRequestDto } from '../DTOs/reschedule.dto';
+
+@Injectable()
+export class RescheduleService {
+    constructor(private readonly prisma: PrismaService) { }
+
+    /* ─────────────────────────────────────────────────────────────────────
+     *  STUDENT: create a reschedule request for one of their sessions
+     * ───────────────────────────────────────────────────────────────────── */
+    async createRequest(userId: number, sessionId: number, dto: CreateRescheduleRequestDto) {
+        // Resolve student profile
+        const student = await this.prisma.student.findUnique({ where: { userId } });
+        if (!student) throw new NotFoundException('Student profile not found');
+
+        // Confirm the session exists and belongs to a class the student is enrolled in
+        const session = await this.prisma.session.findUnique({
+            where: { id: sessionId },
+            include: {
+                class: {
+                    include: { enrollments: { where: { studentId: student.id } } },
+                },
+            },
+        });
+
+        if (!session) throw new NotFoundException('Session not found');
+        if (session.class.enrollments.length === 0) {
+            throw new ForbiddenException('You are not enrolled in this session\'s class');
+        }
+        if (session.status === 'COMPLETED' || session.status === 'CANCELLED') {
+            throw new BadRequestException('Cannot request reschedule for a completed or cancelled session');
+        }
+
+        // Prevent duplicate pending requests
+        const existing = await this.prisma.rescheduleRequest.findFirst({
+            where: { sessionId, studentId: student.id, status: 'PENDING' },
+        });
+        if (existing) {
+            throw new BadRequestException('You already have a pending reschedule request for this session');
+        }
+
+        return this.prisma.rescheduleRequest.create({
+            data: {
+                sessionId,
+                studentId: student.id,
+                proposedDateTime: new Date(dto.proposedDateTime),
+                reason: dto.reason,
+            },
+            include: {
+                session: {
+                    include: { class: { include: { subject: true } } },
+                },
+            },
+        });
+    }
+
+    /* ─────────────────────────────────────────────────────────────────────
+     *  STUDENT: list their own reschedule requests
+     * ───────────────────────────────────────────────────────────────────── */
+    async getStudentRequests(userId: number) {
+        const student = await this.prisma.student.findUnique({ where: { userId } });
+        if (!student) throw new NotFoundException('Student profile not found');
+
+        return this.prisma.rescheduleRequest.findMany({
+            where: { studentId: student.id },
+            include: {
+                session: {
+                    include: { class: { include: { subject: true, tutor: { include: { user: { select: { firstName: true, lastName: true } } } } } } },
+                },
+            },
+            orderBy: { createdAt: 'desc' },
+        });
+    }
+
+    /* ─────────────────────────────────────────────────────────────────────
+     *  TUTOR: list pending reschedule requests for their classes
+     * ───────────────────────────────────────────────────────────────────── */
+    async getTutorRequests(userId: number) {
+        const tutor = await this.prisma.tutor.findUnique({ where: { userId } });
+        if (!tutor) throw new NotFoundException('Tutor profile not found');
+
+        return this.prisma.rescheduleRequest.findMany({
+            where: {
+                session: { class: { tutorId: tutor.id } },
+            },
+            include: {
+                session: {
+                    include: { class: { include: { subject: true } } },
+                },
+                student: {
+                    include: {
+                        user: { select: { firstName: true, lastName: true, email: true, profilePicture: true } },
+                    },
+                },
+            },
+            orderBy: { createdAt: 'desc' },
+        });
+    }
+
+    /* ─────────────────────────────────────────────────────────────────────
+     *  TUTOR: accept a reschedule request
+     *    - Updates the session's dateTime to the proposed one
+     *    - Marks the request ACCEPTED
+     * ───────────────────────────────────────────────────────────────────── */
+    async acceptRequest(userId: number, requestId: number, dto: RespondRescheduleRequestDto) {
+        const tutor = await this.prisma.tutor.findUnique({ where: { userId } });
+        if (!tutor) throw new NotFoundException('Tutor profile not found');
+
+        const request = await this.prisma.rescheduleRequest.findUnique({
+            where: { id: requestId },
+            include: { session: { include: { class: true } } },
+        });
+
+        if (!request) throw new NotFoundException('Reschedule request not found');
+        if (request.session.class.tutorId !== tutor.id) {
+            throw new ForbiddenException('This request does not belong to one of your classes');
+        }
+        if (request.status !== 'PENDING') {
+            throw new BadRequestException(`Request is already ${request.status.toLowerCase()}`);
+        }
+
+        return this.prisma.$transaction(async (tx) => {
+            // 1. Create the replacement session at the proposed time
+            const newSession = await tx.session.create({
+                data: {
+                    classId: request.session.classId,
+                    dateTime: request.proposedDateTime,
+                    duration: request.session.duration,
+                    status: 'SCHEDULED',
+                },
+            });
+
+            // 2. Mark the original session as RESCHEDULED and point it at the new session
+            await tx.session.update({
+                where: { id: request.sessionId },
+                data: {
+                    status: 'RESCHEDULED',
+                    rescheduledSessionId: newSession.id,
+                },
+            });
+
+            // 3. Mark the reschedule request ACCEPTED
+            return tx.rescheduleRequest.update({
+                where: { id: requestId },
+                data: { status: 'ACCEPTED', responseReason: dto.responseReason },
+                include: {
+                    session: { include: { class: { include: { subject: true } } } },
+                    student: { include: { user: { select: { firstName: true, lastName: true } } } },
+                },
+            });
+        });
+    }
+
+    /* ─────────────────────────────────────────────────────────────────────
+     *  TUTOR: decline a reschedule request
+     * ───────────────────────────────────────────────────────────────────── */
+    async declineRequest(userId: number, requestId: number, dto: RespondRescheduleRequestDto) {
+        const tutor = await this.prisma.tutor.findUnique({ where: { userId } });
+        if (!tutor) throw new NotFoundException('Tutor profile not found');
+
+        const request = await this.prisma.rescheduleRequest.findUnique({
+            where: { id: requestId },
+            include: { session: { include: { class: true } } },
+        });
+
+        if (!request) throw new NotFoundException('Reschedule request not found');
+        if (request.session.class.tutorId !== tutor.id) {
+            throw new ForbiddenException('This request does not belong to one of your classes');
+        }
+        if (request.status !== 'PENDING') {
+            throw new BadRequestException(`Request is already ${request.status.toLowerCase()}`);
+        }
+
+        return this.prisma.rescheduleRequest.update({
+            where: { id: requestId },
+            data: { status: 'DECLINED', responseReason: dto.responseReason },
+            include: {
+                session: { include: { class: { include: { subject: true } } } },
+                student: { include: { user: { select: { firstName: true, lastName: true } } } },
+            },
+        });
+    }
+
+    /* ─────────────────────────────────────────────────────────────────────
+     *  STUDENT: cancel their own pending request
+     * ───────────────────────────────────────────────────────────────────── */
+    async cancelRequest(userId: number, requestId: number) {
+        const student = await this.prisma.student.findUnique({ where: { userId } });
+        if (!student) throw new NotFoundException('Student profile not found');
+
+        const request = await this.prisma.rescheduleRequest.findUnique({ where: { id: requestId } });
+        if (!request) throw new NotFoundException('Reschedule request not found');
+        if (request.studentId !== student.id) throw new ForbiddenException('Access denied');
+        if (request.status !== 'PENDING') {
+            throw new BadRequestException('Only pending requests can be cancelled');
+        }
+
+        return this.prisma.rescheduleRequest.delete({ where: { id: requestId } });
+    }
+}

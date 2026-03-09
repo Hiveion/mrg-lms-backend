@@ -136,9 +136,10 @@ model Student {
   user    User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId  Int             @unique @map("user_id")
   parents ParentStudent[]
-  enrollments Enrollment[]
+  enrollments         Enrollment[]
   homeworkSubmissions HomeworkSubmission[]
-  availabilities StudentAvailability[]
+  availabilities      StudentAvailability[]
+  rescheduleRequests  RescheduleRequest[]
 
   @@map("students")
 }
@@ -277,9 +278,10 @@ model Session {
   createdAt            DateTime      @default(now()) @map("created_at")
   updatedAt            DateTime      @updatedAt @map("updated_at")
 
-  class              Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
-  rescheduledSession Session? @relation("RescheduledSession", fields: [rescheduledSessionId], references: [id])
-  nextSessions       Session[] @relation("RescheduledSession")
+  class                Class               @relation(fields: [classId], references: [id], onDelete: Cascade)
+  rescheduledSession   Session?            @relation("RescheduledSession", fields: [rescheduledSessionId], references: [id])
+  nextSessions         Session[]           @relation("RescheduledSession")
+  rescheduleRequests   RescheduleRequest[]
 
   @@map("sessions")
 }
@@ -394,5 +396,28 @@ model StudentAvailability {
   student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
   @@map("student_availabilities")
+}
+
+enum RescheduleStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+}
+
+model RescheduleRequest {
+  id               Int              @id @default(autoincrement()) @map("reschedule_id")
+  sessionId        Int              @map("session_id")
+  studentId        Int              @map("student_id")
+  proposedDateTime DateTime         @map("proposed_date_time")
+  reason           String?
+  status           RescheduleStatus @default(PENDING)
+  responseReason   String?          @map("response_reason")
+  createdAt        DateTime         @default(now()) @map("created_at")
+  updatedAt        DateTime         @updatedAt @map("updated_at")
+
+  session  Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  student  Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@map("reschedule_requests")
 }
 
