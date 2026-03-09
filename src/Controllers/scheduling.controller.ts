@@ -76,6 +76,12 @@ export class SchedulingController {
     }
 
     @UseGuards(AuthGuard('jwt'))
+    @Get('match/all')
+    async getAllMatchedSlots() {
+        return this.schedulingService.getAllMatchedSlots();
+    }
+
+    @UseGuards(AuthGuard('jwt'))
     @Get('match/:studentId/:tutorId')
     async matchAvailability(
         @Param('studentId', ParseIntPipe) studentId: number,

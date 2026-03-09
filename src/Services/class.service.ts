@@ -46,6 +46,9 @@ export class ClassService {
                     },
                 },
                 sessions: true,
+                schedules: {
+                    orderBy: { day: 'asc' },
+                },
             },
         });
     }
@@ -61,6 +64,9 @@ export class ClassService {
                     },
                 },
                 sessions: true,
+                schedules: {
+                    orderBy: { day: 'asc' },
+                },
             },
         });
 

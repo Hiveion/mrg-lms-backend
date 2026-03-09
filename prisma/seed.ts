@@ -15,6 +15,7 @@ async function main() {
   await prisma.homeworkQuestion.deleteMany();
   await prisma.homework.deleteMany();
   await prisma.session.deleteMany();
+  await prisma.classSchedule.deleteMany();
   await prisma.enrollment.deleteMany();
   await prisma.class.deleteMany();
   await prisma.subject.deleteMany();
@@ -104,6 +105,8 @@ async function main() {
 
   const tutorId = tutorUser.tutorProfile!.id;
   const studentId = studentUser.studentProfile!.id;
+  const bobId = studentUser2.studentProfile!.id;
+  const carolId = studentUser3.studentProfile!.id;
 
   // 3. Create 10 Subjects
   const subjectData = [
@@ -128,34 +131,107 @@ async function main() {
   }
 
   // 4. Create 10 Classes
+  // schedules: array of { day, startTime, duration } entries for each class
   const classData = [
-    { name: 'Advanced Calculus BC', fee: 150.0 },
-    { name: 'Quantum Mechanics Intro', fee: 180.0 },
-    { name: 'Organic Chemistry Lab', fee: 160.0 },
-    { name: 'Molecular Genetics', fee: 140.0 },
-    { name: 'The Industrial Revolution', fee: 120.0 },
-    { name: 'Climate Change Analytics', fee: 130.0 },
-    { name: 'Shakespearean Drama', fee: 110.0 },
-    { name: 'Full-stack Web Dev (React/Nest)', fee: 200.0 },
-    { name: 'International Trade Policy', fee: 140.0 },
-    { name: 'Modern Digital Painting', fee: 120.0 },
+    {
+      name: 'Advanced Calculus BC', fee: 150.0,
+      schedules: [
+        { day: 'MONDAY', startTime: '14:00', duration: 90 },
+        { day: 'THURSDAY', startTime: '14:00', duration: 90 },
+      ],
+    },
+    {
+      name: 'Quantum Mechanics Intro', fee: 180.0,
+      schedules: [
+        { day: 'TUESDAY', startTime: '10:00', duration: 90 },
+        { day: 'FRIDAY', startTime: '10:00', duration: 90 },
+      ],
+    },
+    {
+      name: 'Organic Chemistry Lab', fee: 160.0,
+      schedules: [
+        { day: 'WEDNESDAY', startTime: '13:00', duration: 120 },
+        { day: 'SATURDAY', startTime: '09:00', duration: 120 },
+      ],
+    },
+    {
+      name: 'Molecular Genetics', fee: 140.0,
+      schedules: [
+        { day: 'MONDAY', startTime: '16:00', duration: 90 },
+        { day: 'WEDNESDAY', startTime: '16:00', duration: 90 },
+      ],
+    },
+    {
+      name: 'The Industrial Revolution', fee: 120.0,
+      schedules: [
+        { day: 'TUESDAY', startTime: '15:00', duration: 60 },
+      ],
+    },
+    {
+      name: 'Climate Change Analytics', fee: 130.0,
+      schedules: [
+        { day: 'THURSDAY', startTime: '11:00', duration: 60 },
+      ],
+    },
+    {
+      name: 'Shakespearean Drama', fee: 110.0,
+      schedules: [
+        { day: 'FRIDAY', startTime: '14:00', duration: 90 },
+        { day: 'SUNDAY', startTime: '10:00', duration: 90 },
+      ],
+    },
+    {
+      name: 'Full-stack Web Dev (React/Nest)', fee: 200.0,
+      schedules: [
+        { day: 'SATURDAY', startTime: '10:00', duration: 120 },
+        { day: 'SUNDAY', startTime: '14:00', duration: 120 },
+      ],
+    },
+    {
+      name: 'International Trade Policy', fee: 140.0,
+      schedules: [
+        { day: 'WEDNESDAY', startTime: '09:00', duration: 90 },
+      ],
+    },
+    {
+      name: 'Modern Digital Painting', fee: 120.0,
+      schedules: [
+        { day: 'SATURDAY', startTime: '15:00', duration: 90 },
+      ],
+    },
   ];
 
   const classes: Class[] = [];
   for (let i = 0; i < 10; i++) {
+    const cd = classData[i];
     const classItem = await prisma.class.create({
       data: {
-        name: classData[i].name,
+        name: cd.name,
         subjectId: subjects[i].id,
         tutorId: tutorId,
         grade: 'Grade 12',
         isActive: true,
-        classFee: classData[i].fee,
+        classFee: cd.fee,
         maxStudentCount: 25,
+        frequency: cd.schedules.length,
       },
     });
     classes.push(classItem);
+
+    // Create schedule entries for this class
+    for (const sched of cd.schedules) {
+      await prisma.classSchedule.create({
+        data: {
+          classId: classItem.id,
+          day: sched.day as any,
+          startTime: sched.startTime,
+          duration: sched.duration,
+        },
+      });
+    }
   }
+  console.log('Class schedules seeded.');
+
 
   // 5. Enroll Alice in first 5 classes, Bob in 3, Carol in 3
   const aliceEnrolled = classes.slice(0, 5);
@@ -170,7 +246,6 @@ async function main() {
     });
   }
 
-  const bobId = studentUser2.studentProfile!.id;
   const bobEnrolled = classes.slice(2, 5);
   for (const c of bobEnrolled) {
     await prisma.enrollment.create({
@@ -183,7 +258,6 @@ async function main() {
     });
   }
 
-  const carolId = studentUser3.studentProfile!.id;
   const carolEnrolled = classes.slice(4, 7);
   for (const c of carolEnrolled) {
     await prisma.enrollment.create({
@@ -637,20 +711,62 @@ async function main() {
   }
 
   // 10. Availability Seeding
+  // Goal: give each tutor/student 3 broad windows across different days,
+  // with deliberate overlaps so an admin can assign a class and watch
+  // the interval-subtraction logic split / trim / delete availability entries.
+  //
+  // Overlap map (what a freshly assigned class could be):
+  //   MONDAY    14:00 – 16:00  →  tutor 14:00-18:00  overlaps  alice 14:00-17:00
+  //   WEDNESDAY 10:00 – 11:30  →  tutor 09:00-12:00  overlaps  bob   09:30-13:00
+  //   FRIDAY    15:00 – 16:30  →  tutor 13:00-17:00  overlaps  carol 14:00-18:00
   console.log('Seeding availability...');
   const { WeekDay } = require('@prisma/client');
 
+  // ── Tutor Availability (Robert) ──────────────────────────────────────────
   await prisma.tutorAvailability.createMany({
     data: [
+      // Monday  14:00 – 18:00  (overlaps Alice 14:00-17:00)
       { tutorId, day: WeekDay.MONDAY, startTime: '14:00', endTime: '18:00' },
-      { tutorId, day: WeekDay.WEDNESDAY, startTime: '10:00', endTime: '12:00' },
+      // Wednesday 09:00 – 12:00  (overlaps Bob 09:30-13:00)
+      { tutorId, day: WeekDay.WEDNESDAY, startTime: '09:00', endTime: '12:00' },
+      // Friday  13:00 – 17:00  (overlaps Carol 14:00-18:00)
+      { tutorId, day: WeekDay.FRIDAY, startTime: '13:00', endTime: '17:00' },
     ],
   });
 
+  // ── Alice (Student 1) ────────────────────────────────────────────────────
   await prisma.studentAvailability.createMany({
     data: [
-      { studentId, day: WeekDay.MONDAY, startTime: '15:00', endTime: '17:00' }, // Alice
-      { studentId: bobId, day: WeekDay.WEDNESDAY, startTime: '11:00', endTime: '14:00' }, // Bob
+      // Monday  14:00 – 17:00  (overlaps tutor 14:00-18:00  ✓)
+      { studentId, day: WeekDay.MONDAY, startTime: '14:00', endTime: '17:00' },
+      // Thursday  10:00 – 12:30
+      { studentId, day: WeekDay.THURSDAY, startTime: '10:00', endTime: '12:30' },
+      // Saturday  09:00 – 11:00
+      { studentId, day: WeekDay.SATURDAY, startTime: '09:00', endTime: '11:00' },
+    ],
+  });
+
+  // ── Bob (Student 2) ──────────────────────────────────────────────────────
+  await prisma.studentAvailability.createMany({
+    data: [
+      // Wednesday  09:30 – 13:00  (overlaps tutor 09:00-12:00  ✓)
+      { studentId: bobId, day: WeekDay.WEDNESDAY, startTime: '09:30', endTime: '13:00' },
+      // Monday  16:00 – 18:30
+      { studentId: bobId, day: WeekDay.MONDAY, startTime: '16:00', endTime: '18:30' },
+      // Friday  10:00 – 13:00
+      { studentId: bobId, day: WeekDay.FRIDAY, startTime: '10:00', endTime: '13:00' },
+    ],
+  });
+
+  // ── Carol (Student 3) ────────────────────────────────────────────────────
+  await prisma.studentAvailability.createMany({
+    data: [
+      // Friday  14:00 – 18:00  (overlaps tutor 13:00-17:00  ✓)
+      { studentId: carolId, day: WeekDay.FRIDAY, startTime: '14:00', endTime: '18:00' },
+      // Tuesday  09:00 – 11:00
+      { studentId: carolId, day: WeekDay.TUESDAY, startTime: '09:00', endTime: '11:00' },
+      // Saturday  13:00 – 16:00
+      { studentId: carolId, day: WeekDay.SATURDAY, startTime: '13:00', endTime: '16:00' },
     ],
   });
 

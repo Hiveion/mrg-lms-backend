@@ -1,6 +1,6 @@
-import { Controller, Post, Get, Body, UseGuards, Request, Param, ParseIntPipe } from '@nestjs/common';
+import { Controller, Post, Get, Body, UseGuards, Request, Param, ParseIntPipe, Query } from '@nestjs/common';
 import { AdminService } from '../Services/admin.service';
-import { CreateUserByAdminDto, InviteUserDto } from '../DTOs/admin.dto';
+import { CreateUserByAdminDto, InviteUserDto, AssignClassDto } from '../DTOs/admin.dto';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../Guards/roles.guard';
 import { Roles } from '../Decorators/roles.decorator';
@@ -27,6 +27,17 @@ export class AdminController {
         return this.adminService.createUserByAdmin(createUserByAdminDto);
     }
 
+    @Post('assign-class')
+    async assignClass(@Body() assignClassDto: AssignClassDto) {
+        return this.adminService.assignClass(assignClassDto);
+    }
+
+    @Get('matching-slots')
+    async getMatchingSlots(
+        @Query('tutorId') tutorId: string,
+        @Query('studentId') studentId: string,
+    ) {
+        return this.adminService.getMatchingSlots(Number(tutorId), Number(studentId));
     @Post('approve-user/:id')
     async approveUser(@Param('id', ParseIntPipe) id: number) {
         return this.adminService.approveUser(id);

@@ -9,4 +9,9 @@ export class UsersController {
     findAllTutors() {
         return this.usersService.findAllTutors();
     }
+
+    @Get('students')
+    findAllStudents() {
+        return this.usersService.findAllStudents();
+    }
 }

@@ -1,8 +1,8 @@
 import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../Database/prisma.service';
 import * as bcrypt from 'bcrypt';
-import { CreateUserByAdminDto, InviteUserDto } from '../DTOs/admin.dto';
-import { UserStatus, UserRole } from '@prisma/client';
+import { CreateUserByAdminDto, InviteUserDto, AssignClassDto } from '../DTOs/admin.dto';
+import { UserStatus, UserRole, EnrollmentStatus, SessionStatus, WeekDay } from '@prisma/client';
 import { MailService } from './mail.service';
 
 import { JwtService } from '@nestjs/jwt';
@@ -124,6 +124,260 @@ export class AdminService {
             user: result,
         };
     }
+
+    async assignClass(dto: AssignClassDto) {
+        const { studentId, tutorId, subjectId, schedule, startDate, numberOfWeeks = 4, grade } = dto;
+
+        // Verify entities exist
+        const student = await this.prisma.student.findUnique({ where: { id: studentId }, include: { user: true } });
+        const tutor = await this.prisma.tutor.findUnique({ where: { id: tutorId }, include: { user: true } });
+        const subject = await this.prisma.subject.findUnique({ where: { id: subjectId } });
+
+        if (!student || !tutor || !subject) {
+            throw new NotFoundException('Student, Tutor, or Subject not found');
+        }
+
+        const className = dto.name || `${subject.name} with ${student.user.firstName}`;
+
+        return this.prisma.$transaction(async (tx) => {
+            // 1. Create Class
+            const newClass = await tx.class.create({
+                data: {
+                    name: className,
+                    subjectId,
+                    tutorId,
+                    grade: grade || student.grade,
+                    isActive: true,
+                    isDemo: false,
+                    frequency: dto.frequency || schedule.length,
+                    maxStudentCount: dto.maxStudents || 20,
+                    classFee: dto.baseFee || 0,
+                    currentStudentCount: 1, // First student being enrolled
+                    schedules: {
+                        create: schedule.map(slot => ({
+                            day: slot.day,
+                            startTime: slot.startTime,
+                            duration: slot.duration
+                        }))
+                    }
+                }
+            });
+
+            // 2. Enroll Student
+            await tx.enrollment.create({
+                data: {
+                    studentId,
+                    classId: newClass.id,
+                    status: EnrollmentStatus.ACTIVE,
+                    assignedPrice: dto.studentPrice || dto.baseFee || 0,
+                    confirmationDate: new Date(),
+                }
+            });
+
+            // 3. Generate Sessions
+            const sessionData: any[] = [];
+            const start = startDate ? new Date(startDate) : new Date();
+
+            for (let i = 0; i < numberOfWeeks; i++) {
+                for (const slot of schedule) {
+                    const sessionDate = this.getNextOccurrence(start, slot.day, i);
+                    const [hours, minutes] = slot.startTime.split(':').map(Number);
+                    sessionDate.setHours(hours, minutes, 0, 0);
+
+                    sessionData.push({
+                        classId: newClass.id,
+                        dateTime: sessionDate,
+                        duration: slot.duration,
+                        status: SessionStatus.SCHEDULED,
+                    });
+                }
+            }
+
+            if (sessionData.length > 0) {
+                await tx.session.createMany({
+                    data: sessionData,
+                });
+            }
+
+            // 4. Punch the class slot out of the tutor's and student's availability calendars
+            for (const slot of schedule) {
+                const classEnd = this.toTimeStr(this.toMinutes(slot.startTime) + slot.duration);
+                await this.subtractFromTutorAvailability(tx, tutorId, slot.day as WeekDay, slot.startTime, classEnd);
+                await this.subtractFromStudentAvailability(tx, studentId, slot.day as WeekDay, slot.startTime, classEnd);
+            }
+
+            return tx.class.findUnique({
+                where: { id: newClass.id },
+                include: {
+                    subject: true,
+                    tutor: { include: { user: true } },
+                    sessions: true,
+                    schedules: true,
+                    enrollments: { include: { student: { include: { user: true } } } }
+                }
+            });
+        });
+    }
+
+    async getMatchingSlots(tutorId: number, studentId: number) {
+        const [tutorSlots, studentSlots] = await Promise.all([
+            this.prisma.tutorAvailability.findMany({ where: { tutorId } }),
+            this.prisma.studentAvailability.findMany({ where: { studentId } }),
+        ]);
+
+        const matchingSlots: {
+            day: string;
+            startTime: string;
+            endTime: string;
+            maxDuration: number;
+        }[] = [];
+
+        for (const tSlot of tutorSlots) {
+            const tStart = this.toMinutes(tSlot.startTime);
+            const tEnd = this.toMinutes(tSlot.endTime);
+
+            for (const sSlot of studentSlots) {
+                if (sSlot.day !== tSlot.day) continue;
+
+                const sStart = this.toMinutes(sSlot.startTime);
+                const sEnd = this.toMinutes(sSlot.endTime);
+
+                // Compute overlap window
+                const overlapStart = Math.max(tStart, sStart);
+                const overlapEnd = Math.min(tEnd, sEnd);
+
+                if (overlapEnd > overlapStart) {
+                    matchingSlots.push({
+                        day: tSlot.day,
+                        startTime: this.toTimeStr(overlapStart),
+                        endTime: this.toTimeStr(overlapEnd),
+                        maxDuration: overlapEnd - overlapStart,
+                    });
+                }
+            }
+        }
+
+        // Sort by day order then startTime
+        const dayOrder = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
+        matchingSlots.sort((a, b) => {
+            const dayDiff = dayOrder.indexOf(a.day) - dayOrder.indexOf(b.day);
+            return dayDiff !== 0 ? dayDiff : this.toMinutes(a.startTime) - this.toMinutes(b.startTime);
+        });
+
+        return matchingSlots;
+    }
+
+    private getNextOccurrence(startDate: Date, targetDay: WeekDay, weekOffset: number): Date {
+        const daysToIndex = {
+            'SUNDAY': 0, 'MONDAY': 1, 'TUESDAY': 2, 'WEDNESDAY': 3, 'THURSDAY': 4, 'FRIDAY': 5, 'SATURDAY': 6
+        };
+        const targetDayNum = daysToIndex[targetDay];
+        const result = new Date(startDate);
+        const currentDayNum = result.getDay();
+
+        let diff = targetDayNum - currentDayNum;
+        if (diff < 0) diff += 7;
+
+        result.setDate(result.getDate() + diff + (weekOffset * 7));
+        return result;
+    }
+
+    /** Convert "HH:MM" to total minutes */
+    private toMinutes(time: string): number {
+        const [h, m] = time.split(':').map(Number);
+        return h * 60 + m;
+    }
+
+    /** Convert total minutes back to "HH:MM" */
+    private toTimeStr(minutes: number): string {
+        const h = Math.floor(minutes / 60) % 24;
+        const m = minutes % 60;
+        return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+    }
+
+    /**
+     * Overlapping existing slots are deleted and the non-overlapping fragments re-created.
+     */
+    private async subtractFromTutorAvailability(
+        tx: any,
+        tutorId: number,
+        day: WeekDay,
+        classStart: string,
+        classEnd: string,
+    ): Promise<void> {
+        const csMin = this.toMinutes(classStart);
+        const ceMin = this.toMinutes(classEnd);
+
+        const all = await tx.tutorAvailability.findMany({ where: { tutorId, day } });
+
+        for (const slot of all) {
+            const sStart = this.toMinutes(slot.startTime);
+            const sEnd = this.toMinutes(slot.endTime);
+
+            // Skip if no overlap
+            if (sEnd <= csMin || sStart >= ceMin) continue;
+
+            // Delete the original slot
+            await tx.tutorAvailability.delete({ where: { id: slot.id } });
+
+            // Re-create left fragment: [sStart, csMin) if it exists
+            if (sStart < csMin) {
+                await tx.tutorAvailability.create({
+                    data: { tutorId, day, startTime: slot.startTime, endTime: classStart },
+                });
+            }
+
+            // Re-create right fragment: [ceMin, sEnd) if it exists
+            if (sEnd > ceMin) {
+                await tx.tutorAvailability.create({
+                    data: { tutorId, day, startTime: classEnd, endTime: slot.endTime },
+                });
+            }
+            // If the class slot fully consumes the availability slot, it's just deleted — nothing to re-create.
+        }
+    }
+
+    /**
+     * Punch [classStart, classEnd) out of the student's availability on the given day.
+     */
+    private async subtractFromStudentAvailability(
+        tx: any,
+        studentId: number,
+        day: WeekDay,
+        classStart: string,
+        classEnd: string,
+    ): Promise<void> {
+        const csMin = this.toMinutes(classStart);
+        const ceMin = this.toMinutes(classEnd);
+
+        const all = await tx.studentAvailability.findMany({ where: { studentId, day } });
+
+        for (const slot of all) {
+            const sStart = this.toMinutes(slot.startTime);
+            const sEnd = this.toMinutes(slot.endTime);
+
+            // Skip if no overlap
+            if (sEnd <= csMin || sStart >= ceMin) continue;
+
+            // Delete the original slot
+            await tx.studentAvailability.delete({ where: { id: slot.id } });
+
+            // Re-create left fragment: [sStart, csMin) if it exists
+            if (sStart < csMin) {
+                await tx.studentAvailability.create({
+                    data: { studentId, day, startTime: slot.startTime, endTime: classStart },
+                });
+            }
+
+            // Re-create right fragment: [ceMin, sEnd) if it exists
+            if (sEnd > ceMin) {
+                await tx.studentAvailability.create({
+                    data: { studentId, day, startTime: classEnd, endTime: slot.endTime },
+                });
+            }
+        }
+    }
+}
 
     async approveUser(userId: number) {
         const user = await this.prisma.user.findUnique({

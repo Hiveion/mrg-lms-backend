@@ -152,6 +152,9 @@ export class EnrollmentService {
                                 user: true,
                             },
                         },
+                        schedules: {
+                            orderBy: { day: 'asc' },
+                        },
                     },
                 },
             },
