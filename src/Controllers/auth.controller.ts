@@ -14,9 +14,10 @@ export class AuthController {
     @Post('login')
     @HttpCode(HttpStatus.OK)
     async login(@Body() loginDto: LoginDto) {
+        // validateUser itself throws if deactive, or returns null if password incorrect
         const user = await this.authService.validateUser(loginDto.email, loginDto.password);
         if (!user) {
-            throw new UnauthorizedException('Invalid credentials');
+            throw new UnauthorizedException('Invalid email or password');
         }
         return this.authService.login(user);
     }
@@ -39,14 +40,16 @@ export class AuthController {
     @Get('google/callback')
     @UseGuards(AuthGuard('google'))
     async googleAuthRedirect(@Request() req: any, @Res() res: Response) {
-        const result = await this.authService.googleLogin(req);
-
-        // Redirect to frontend callback with token and status
-        const frontendUrl = process.env.FRONTEND_URL;
-
-        res.redirect(
-            `${frontendUrl}/auth/callback?token=${result.access_token}&status=${result.user.status}`
-        );
+        try {
+            const result = await this.authService.googleLogin(req);
+            const frontendUrl = process.env.FRONTEND_URL;
+            res.redirect(
+                `${frontendUrl}/auth/callback?token=${result.access_token}&status=${result.user.status}`
+            );
+        } catch (error) {
+            const frontendUrl = process.env.FRONTEND_URL;
+            res.redirect(`${frontendUrl}/auth?error=${encodeURIComponent(error.message)}`);
+        }
     }
 
     @Post('complete-registration')

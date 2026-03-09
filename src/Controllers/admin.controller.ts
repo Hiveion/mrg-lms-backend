@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Query, UseGuards, Request } from '@nestjs/common';
+import { Controller, Post, Get, Body, UseGuards, Request, Param, ParseIntPipe, Query } from '@nestjs/common';
 import { AdminService } from '../Services/admin.service';
 import { CreateUserByAdminDto, InviteUserDto, AssignClassDto } from '../DTOs/admin.dto';
 import { AuthGuard } from '@nestjs/passport';
@@ -11,6 +11,11 @@ import { UserRole } from '@prisma/client';
 @Roles(UserRole.ADMIN)
 export class AdminController {
     constructor(private readonly adminService: AdminService) { }
+
+    @Get('users')
+    async getUsers() {
+        return this.adminService.findAllUsers();
+    }
 
     @Post('invite-user')
     async inviteUser(@Body() inviteUserDto: InviteUserDto) {
@@ -33,5 +38,13 @@ export class AdminController {
         @Query('studentId') studentId: string,
     ) {
         return this.adminService.getMatchingSlots(Number(tutorId), Number(studentId));
+    @Post('approve-user/:id')
+    async approveUser(@Param('id', ParseIntPipe) id: number) {
+        return this.adminService.approveUser(id);
+    }
+
+    @Post('reject-user/:id')
+    async rejectUser(@Param('id', ParseIntPipe) id: number, @Body('reason') reason?: string) {
+        return this.adminService.rejectUser(id, reason);
     }
 }

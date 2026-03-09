@@ -18,6 +18,9 @@ export class AuthService {
     async validateUser(email: string, pass: string): Promise<any> {
         const user = await this.usersService.findOne(email);
         if (user && user.passwordHash && (await bcrypt.compare(pass, user.passwordHash))) {
+            if (user.status === UserStatus.INACTIVE) {
+                throw new UnauthorizedException('Your account has been deactivated. Please contact support.');
+            }
             const { passwordHash, ...result } = user;
             return result;
         }
@@ -55,14 +58,14 @@ export class AuthService {
         const existingUser = await this.usersService.findOne(registerDto.email);
 
         if (existingUser) {
-            // Check if it's a pending invitation
-            if (existingUser.status === UserStatus.PENDING) {
+            // Check if it's an invited user pending setup
+            if (existingUser.status === UserStatus.INCOMPLETE) {
                 // Check if invitation has expired
                 const invitationExpiresAt = (existingUser as any).invitationExpiresAt;
                 if (invitationExpiresAt && new Date() > new Date(invitationExpiresAt)) {
                     throw new UnauthorizedException('Invitation has expired. Please ask for a new one.');
                 }
-                // Continue with registration for this existing pending user
+                // Continue with registration for this invited user
             } else {
                 throw new ConflictException('User with this email already exists');
             }
@@ -71,15 +74,17 @@ export class AuthService {
         const hashedPassword = await bcrypt.hash(registerDto.password, 10);
 
         let user;
-        if (existingUser && existingUser.status === UserStatus.PENDING) {
-            // Update the existing pending user
+        if (existingUser && existingUser.status === UserStatus.INCOMPLETE) {
+            // Update the invited user
             user = await this.usersService.update(existingUser.id, {
                 passwordHash: hashedPassword,
                 firstName: registerDto.firstName,
                 lastName: registerDto.lastName,
                 phoneNumber: registerDto.phoneNumber,
                 userType: registerDto.userType || existingUser.userType,
-                status: UserStatus.INCOMPLETE,
+                status: (registerDto.userType === UserRole.TUTOR || registerDto.userType === UserRole.STUDENT)
+                    ? UserStatus.PENDING
+                    : UserStatus.ACTIVE,
                 invitationExpiresAt: null, // Clear expiry
             } as any);
 
@@ -102,7 +107,9 @@ export class AuthService {
                 lastName: registerDto.lastName,
                 phoneNumber: registerDto.phoneNumber,
                 userType: registerDto.userType,
-                status: UserStatus.INCOMPLETE,
+                status: (registerDto.userType === UserRole.TUTOR || registerDto.userType === UserRole.STUDENT)
+                    ? UserStatus.PENDING
+                    : UserStatus.ACTIVE,
                 tutorProfile: registerDto.userType === UserRole.TUTOR ? {
                     create: {
                         bio: registerDto.bio,
@@ -155,6 +162,9 @@ export class AuthService {
                 status: UserStatus.INCOMPLETE,
             });
         } else {
+            if (user.status === UserStatus.INACTIVE) {
+                throw new UnauthorizedException('Your account has been deactivated. Please contact support.');
+            }
             // Update googleId and profilePicture if not present
             if (!user.googleId || !user.profilePicture) {
                 // We need an update method in usersService, but for now we can rely on user already existing
@@ -188,8 +198,10 @@ export class AuthService {
             // Or just return user
         }
 
-        // Only TUTORs need approval (status: PENDING), all other roles are ACTIVE immediately
-        const status = completeDto.userType === UserRole.TUTOR ? UserStatus.PENDING : UserStatus.ACTIVE;
+        // Both TUTORs and STUDENTs need approval (status: PENDING), all other roles are ACTIVE immediately
+        const status = (completeDto.userType === UserRole.TUTOR || completeDto.userType === UserRole.STUDENT)
+            ? UserStatus.PENDING
+            : UserStatus.ACTIVE;
 
         return this.usersService.update(userId, {
             userType: completeDto.userType,
