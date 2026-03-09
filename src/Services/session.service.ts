@@ -162,6 +162,16 @@ export class SessionService {
             },
             include: {
                 rescheduledSession: true,
+                rescheduleRequests: {
+                    where: { status: 'PENDING' },
+                    include: {
+                        student: {
+                            include: {
+                                user: { select: { firstName: true, lastName: true } },
+                            },
+                        },
+                    },
+                },
                 class: {
                     include: {
                         subject: true,
@@ -197,6 +207,16 @@ export class SessionService {
             },
             include: {
                 rescheduledSession: true,
+                rescheduleRequests: {
+                    where: { status: 'PENDING' },
+                    include: {
+                        student: {
+                            include: {
+                                user: { select: { firstName: true, lastName: true } },
+                            },
+                        },
+                    },
+                },
                 class: {
                     include: {
                         subject: true,
