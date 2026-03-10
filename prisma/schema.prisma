@@ -106,6 +106,7 @@ model User {
   coordinatorProfile Coordinator?
   ratingLikes        RatingLike[]
   ratings            Rating[]
+  notifications      Notification[]
 
   @@map("users")
 }
@@ -419,5 +420,30 @@ model RescheduleRequest {
   student  Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
   @@map("reschedule_requests")
+}
+
+enum NotificationType {
+  SYSTEM
+  CLASS
+  HOMEWORK
+  PAYMENT
+  ENROLLMENT
+  RESCHEDULE
+}
+
+model Notification {
+  id        Int              @id @default(autoincrement()) @map("notification_id")
+  userId    Int              @map("user_id")
+  title     String
+  message   String
+  type      NotificationType @default(SYSTEM)
+  isRead    Boolean          @default(false) @map("is_read")
+  link      String?
+  createdAt DateTime         @default(now()) @map("created_at")
+  updatedAt DateTime         @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
 }
 
