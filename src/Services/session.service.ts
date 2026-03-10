@@ -1,21 +1,30 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../Database/prisma.service';
 import { CreateSessionDto, UpdateSessionDto } from '../DTOs/session.dto';
-import { EnrollmentStatus, SessionStatus } from '@prisma/client';
+import { EnrollmentStatus, SessionStatus, NotificationType } from '@prisma/client';
+import { NotificationService } from './notification.service';
 
 @Injectable()
 export class SessionService {
-    constructor(private prisma: PrismaService) { }
+    constructor(private prisma: PrismaService, private readonly notificationService: NotificationService) { }
 
     async create(createSessionDto: CreateSessionDto) {
         const classItem = await this.prisma.class.findUnique({
             where: { id: createSessionDto.classId },
+            include: {
+                tutor: { select: { userId: true } },
+                enrollments: {
+                    where: { status: EnrollmentStatus.ACTIVE },
+                    include: { student: { select: { userId: true } } },
+                },
+                subject: true,
+            },
         });
         if (!classItem) {
             throw new NotFoundException(`Class with ID ${createSessionDto.classId} not found`);
         }
 
-        return this.prisma.session.create({
+        const session = await this.prisma.session.create({
             data: {
                 ...createSessionDto,
                 dateTime: new Date(createSessionDto.dateTime),
@@ -40,6 +49,38 @@ export class SessionService {
                 },
             },
         });
+
+        // Notifications
+        try {
+            const dateTimeStr = new Date(session.dateTime).toLocaleString();
+            const title = `New Session Scheduled`;
+            const message = `A new session for ${classItem.subject.name} - ${classItem.name} has been scheduled for ${dateTimeStr}.`;
+
+            // Notify tutor
+            await this.notificationService.createNotification(
+                classItem.tutor.userId,
+                title,
+                message,
+                NotificationType.CLASS,
+                '/dashboard/schedule'
+            );
+
+            // Notify students
+            const studentUserIds = classItem.enrollments.map(e => e.student.userId);
+            if (studentUserIds.length > 0) {
+                await this.notificationService.createManyNotifications(
+                    studentUserIds,
+                    title,
+                    message,
+                    NotificationType.CLASS,
+                    '/dashboard/schedule'
+                );
+            }
+        } catch (error) {
+            console.error('Failed to send session creation notifications:', error);
+        }
+
+        return session;
     }
 
     async findAll() {

@@ -15,9 +15,10 @@ import { AdminModule } from './Modules/admin.module';
 import { MailModule } from './Modules/mail.module';
 import { SchedulingModule } from './Modules/scheduling.module';
 import { RescheduleModule } from './Modules/reschedule.module';
+import { NotificationModule } from './Modules/notification.module';
 
 @Module({
-  imports: [DatabaseModule, AuthModule, UsersModule, SubjectModule, ClassModule, SessionModule, EnrollmentModule, HomeworkModule, RatingModule, AdminModule, MailModule, SchedulingModule, RescheduleModule],
+  imports: [DatabaseModule, AuthModule, UsersModule, SubjectModule, ClassModule, SessionModule, EnrollmentModule, HomeworkModule, RatingModule, AdminModule, MailModule, SchedulingModule, RescheduleModule, NotificationModule],
   controllers: [AppController],
   providers: [AppService],
 })
