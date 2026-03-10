@@ -24,6 +24,7 @@ export class SessionController {
         return this.sessionService.create(createSessionDto);
     }
 
+    @UseGuards(AuthGuard('jwt'))
     @Get()
     findAll() {
         return this.sessionService.findAll();

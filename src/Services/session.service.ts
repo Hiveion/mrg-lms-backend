@@ -62,6 +62,32 @@ export class SessionService {
                         },
                     },
                 },
+                rescheduleRequests: {
+                    where: { status: 'PENDING' },
+                    include: {
+                        student: {
+                            include: {
+                                user: {
+                                    select: {
+                                        firstName: true,
+                                        lastName: true,
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+                rescheduledSession: {
+                    select: {
+                        id: true,
+                        dateTime: true,
+                        status: true,
+                        link: true,
+                    },
+                },
+            },
+            orderBy: {
+                dateTime: 'desc',
             },
         });
     }
