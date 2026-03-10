@@ -203,4 +203,59 @@ export class RescheduleService {
 
         return this.prisma.rescheduleRequest.delete({ where: { id: requestId } });
     }
+
+    /* ─────────────────────────────────────────────────────────────────────
+     *  STAFF (Tutor/Admin): Reschedule session immediately
+     * ───────────────────────────────────────────────────────────────────── */
+    async staffReschedule(userId: number, sessionId: number, dto: CreateRescheduleRequestDto) {
+        // Resolve user role to ensure they are staff
+        const user = await this.prisma.user.findUnique({ where: { id: userId } });
+        if (!user) throw new NotFoundException('User not found');
+
+        const isAdminOrStaff = user.userType === 'ADMIN' || user.userType === 'COORDINATOR';
+        const isTutor = user.userType === 'TUTOR';
+
+        const session = await this.prisma.session.findUnique({
+            where: { id: sessionId },
+            include: { class: true },
+        });
+
+        if (!session) throw new NotFoundException('Session not found');
+
+        // If tutor, verify they own the class
+        if (isTutor) {
+            const tutor = await this.prisma.tutor.findUnique({ where: { userId } });
+            if (!tutor || session.class.tutorId !== tutor.id) {
+                throw new ForbiddenException('You do not have permission to reschedule this class');
+            }
+        } else if (!isAdminOrStaff) {
+            throw new ForbiddenException('Only staff or tutors can reschedule a class directly');
+        }
+
+        if (session.status === 'COMPLETED' || session.status === 'CANCELLED') {
+            throw new BadRequestException('Cannot reschedule a completed or cancelled session');
+        }
+
+        return this.prisma.$transaction(async (tx) => {
+            // 1. Create the replacement session
+            const newSession = await tx.session.create({
+                data: {
+                    classId: session.classId,
+                    dateTime: new Date(dto.proposedDateTime),
+                    duration: session.duration,
+                    status: 'SCHEDULED',
+                    link: session.link, // propagate meeting link
+                },
+            });
+
+            // 2. Mark original as RESCHEDULED
+            return tx.session.update({
+                where: { id: sessionId },
+                data: {
+                    status: 'RESCHEDULED',
+                    rescheduledSessionId: newSession.id,
+                },
+            });
+        });
+    }
 }

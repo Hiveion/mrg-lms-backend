@@ -91,4 +91,17 @@ export class RescheduleController {
     ) {
         return this.rescheduleService.declineRequest(req.user.id, id, dto);
     }
+
+    /**
+     * POST /reschedule/staff/sessions/:sessionId
+     * Staff/Tutor reschedules a session immediately.
+     */
+    @Post('staff/sessions/:sessionId')
+    async staffReschedule(
+        @Request() req: any,
+        @Param('sessionId', ParseIntPipe) sessionId: number,
+        @Body() dto: CreateRescheduleRequestDto,
+    ) {
+        return this.rescheduleService.staffReschedule(req.user.id, sessionId, dto);
+    }
 }
