@@ -61,8 +61,7 @@ export class SessionService {
                 classItem.tutor.userId,
                 title,
                 message,
-                NotificationType.CLASS,
-                '/dashboard/schedule'
+                NotificationType.CLASS
             );
 
             // Notify students
@@ -72,8 +71,7 @@ export class SessionService {
                     studentUserIds,
                     title,
                     message,
-                    NotificationType.CLASS,
-                    '/dashboard/schedule'
+                    NotificationType.CLASS
                 );
             }
         } catch (error) {

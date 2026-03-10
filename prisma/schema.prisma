@@ -438,7 +438,6 @@ model Notification {
   message   String
   type      NotificationType @default(SYSTEM)
   isRead    Boolean          @default(false) @map("is_read")
-  link      String?
   createdAt DateTime         @default(now()) @map("created_at")
   updatedAt DateTime         @updatedAt @map("updated_at")
 

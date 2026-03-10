@@ -77,8 +77,7 @@ export class RescheduleService {
                 session.class.tutor.userId,
                 'Reschedule Requested',
                 `${student.user.firstName} ${student.user.lastName} has requested to reschedule ${session.class.subject.name} - ${session.class.name}.`,
-                NotificationType.RESCHEDULE,
-                '/dashboard/schedule'
+                NotificationType.RESCHEDULE
             );
         } catch (error) {
             console.error('Failed to notify tutor of reschedule request:', error);
@@ -192,8 +191,7 @@ export class RescheduleService {
                 request.student.userId,
                 'Reschedule Accepted',
                 `Your tutor has accepted the reschedule request for ${request.session.class.subject.name}. The session is now moved to ${new Date(request.proposedDateTime).toLocaleString()}.`,
-                NotificationType.RESCHEDULE,
-                '/dashboard/schedule'
+                NotificationType.RESCHEDULE
             );
         } catch (error) {
             console.error('Failed to notify student of accepted reschedule:', error);
@@ -240,8 +238,7 @@ export class RescheduleService {
                 request.student.userId,
                 'Reschedule Declined',
                 `Your tutor has declined the reschedule request for ${request.session.class.subject.name}.${dto.responseReason ? ` Reason: ${dto.responseReason}` : ''}`,
-                NotificationType.RESCHEDULE,
-                '/dashboard/schedule'
+                NotificationType.RESCHEDULE
             );
         } catch (error) {
             console.error('Failed to notify student of declined reschedule:', error);
@@ -339,8 +336,7 @@ export class RescheduleService {
                     studentUserIds,
                     'Session Rescheduled',
                     `The session for ${session.class.subject.name} has been moved to ${new Date(dto.proposedDateTime).toLocaleString()}.`,
-                    NotificationType.CLASS,
-                    '/dashboard/schedule'
+                    NotificationType.CLASS
                 );
             }
         } catch (error) {
