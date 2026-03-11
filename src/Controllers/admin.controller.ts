@@ -38,6 +38,8 @@ export class AdminController {
         @Query('studentId') studentId: string,
     ) {
         return this.adminService.getMatchingSlots(Number(tutorId), Number(studentId));
+    }
+
     @Post('approve-user/:id')
     async approveUser(@Param('id', ParseIntPipe) id: number) {
         return this.adminService.approveUser(id);
