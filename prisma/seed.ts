@@ -8,7 +8,7 @@ async function main() {
   console.log('Start seeding...');
 
   // Clean up existing data in correct order
-  await prisma.resource.deleteMany();
+  await prisma.notification.deleteMany();
   await prisma.ratingLike.deleteMany();
   await prisma.rating.deleteMany();
   await prisma.submissionAnswer.deleteMany();
@@ -61,29 +61,6 @@ async function main() {
     include: { tutorProfile: true },
   });
 
-  // 1b. Create another Tutor: Dr. Sarah Jenkins
-  const tutorUser2 = await prisma.user.create({
-    data: {
-      email: 'sarah.jenkins@mrg-lms.com',
-      passwordHash,
-      firstName: 'Sarah',
-      lastName: 'Jenkins',
-      status: UserStatus.ACTIVE,
-      userType: UserRole.TUTOR,
-      tutorProfile: {
-        create: {
-          bio: 'Expert in Humanities and Social Sciences.',
-          qualifications: ['M.A. History', 'B.A. Economics'],
-          applicationStatus: 'ACCEPTED',
-        },
-      },
-    },
-    include: { tutorProfile: true },
-  });
-
-  const tutorId = tutorUser.tutorProfile!.id;
-  const tutorId2 = tutorUser2.tutorProfile!.id;
-
   // 2. Create Student: Alice Johnson
   const studentUser = await prisma.user.create({
     data: {
@@ -127,6 +104,7 @@ async function main() {
     include: { studentProfile: true },
   });
 
+  const tutorId = tutorUser.tutorProfile!.id;
   const studentId = studentUser.studentProfile!.id;
   const bobId = studentUser2.studentProfile!.id;
   const carolId = studentUser3.studentProfile!.id;
@@ -231,7 +209,7 @@ async function main() {
       data: {
         name: cd.name,
         subjectId: subjects[i].id,
-        tutorId: i < 5 ? tutorId : tutorId2,
+        tutorId: tutorId,
         grade: 'Grade 12',
         isActive: true,
         classFee: cd.fee,
@@ -361,51 +339,6 @@ async function main() {
       });
     }
   }
-
-  console.log('Seeding resources for Alice and Robert...');
-  const resourceData = [
-    { title: 'Lecture 1: Limits & Continuity Notes', description: 'Basic introduction to limits and continuity with examples.', fileUrl: 'https://example.com/math101_v1.pdf', fileType: 'pdf', fileSize: 1024 * 1024 * 1.5 },
-    { title: 'Calculus Formula Sheet', description: 'Essential formulas for derivatives and integrals.', fileUrl: 'https://example.com/formula_sheet.pdf', fileType: 'pdf', fileSize: 1024 * 512 },
-    { title: 'Quantum Mechanics: Introduction Slides', description: 'Lecture slides for the first week of Quantum Mechanics.', fileUrl: 'https://example.com/phys101_intro.pdf', fileType: 'pdf', fileSize: 1024 * 1024 * 3.2 },
-    { title: 'Organic Chemistry: Lab Safety Rules', description: 'Mandatory reading before the first lab session.', fileUrl: 'https://example.com/lab_safety.pdf', fileType: 'pdf', fileSize: 1024 * 256 },
-    { title: 'Genetics: Chapter 1 Summary', description: 'Summary of the Mendel’s Laws and inheritance basics.', fileUrl: 'https://example.com/biol101_ch1.pdf', fileType: 'pdf', fileSize: 1024 * 1024 * 1.1 },
-    { title: 'Practice Problems: Quadratic Equations', description: 'Optional practice set for algebra reinforcement.', fileUrl: 'https://example.com/math_practice.pdf', fileType: 'pdf', fileSize: 1024 * 1024 * 0.8 },
-  ];
-
-  for (let i = 0; i < 7; i++) {
-    const classItem = classes[i];
-    // Each of the first 5 classes gets a couple of resources
-    // Classes 5 and 6 also get resources (taught by Sarah, Alice not enrolled)
-    const uploader = i < 5 ? tutorUser : tutorUser2;
-    const rdIndex = i % resourceData.length;
-
-    await prisma.resource.create({
-      data: {
-        classId: classItem.id,
-        uploaderId: uploader.id,
-        title: resourceData[rdIndex].title,
-        description: resourceData[rdIndex].description,
-        fileUrl: resourceData[rdIndex].fileUrl,
-        fileType: resourceData[rdIndex].fileType,
-        fileSize: resourceData[rdIndex].fileSize,
-      }
-    });
-
-    if (i < 2) { // Add an extra resource for the first 2 classes
-      await prisma.resource.create({
-        data: {
-          classId: classItem.id,
-          uploaderId: tutorUser.id,
-          title: resourceData[5].title,
-          description: resourceData[5].description,
-          fileUrl: resourceData[5].fileUrl,
-          fileType: resourceData[5].fileType,
-          fileSize: resourceData[5].fileSize,
-        }
-      });
-    }
-  }
-  console.log('Resources seeded.');
 
   // 7. Homeworks for each class
   const allHomeworks: any[] = [];
@@ -836,6 +769,69 @@ async function main() {
       // Saturday  13:00 – 16:00
       { studentId: carolId, day: WeekDay.SATURDAY, startTime: '13:00', endTime: '16:00' },
     ],
+  });
+
+  // 11. Notification Seeding
+  console.log('Seeding notifications...');
+  const { NotificationType } = require('@prisma/client');
+
+  const notifications = [
+    // Alice (Student)
+    {
+      userId: studentUser.id,
+      title: 'New Class Scheduled',
+      message: 'Your Mathematics class has been scheduled for tomorrow at 10:00 AM.',
+      type: NotificationType.CLASS,
+    },
+    {
+      userId: studentUser.id,
+      title: 'Homework Assigned',
+      message: 'A new homework "Calculus Worksheet 1" has been assigned.',
+      type: NotificationType.HOMEWORK,
+    },
+    // Bob (Student)
+    {
+      userId: studentUser2.id,
+      title: 'Payment Received',
+      message: 'Your payment for the month of March has been processed.',
+      type: NotificationType.PAYMENT,
+    },
+    {
+      userId: studentUser2.id,
+      title: 'Reschedule Update',
+      message: 'Your request to reschedule Chemistry has been accepted.',
+      type: NotificationType.RESCHEDULE,
+    },
+    // Robert (Tutor)
+    {
+      userId: tutorUser.id,
+      title: 'New Student Enrolled',
+      message: 'Alice Johnson has joined your Mathematics class.',
+      type: NotificationType.ENROLLMENT,
+    },
+    {
+      userId: tutorUser.id,
+      title: 'Reschedule Requested',
+      message: 'Bob Martin has requested to reschedule the Physics session.',
+      type: NotificationType.RESCHEDULE,
+    },
+    // Admin
+    {
+      userId: adminUser.id,
+      title: 'System Alert',
+      message: 'Server maintenance scheduled for Sunday at 2:00 AM.',
+      type: NotificationType.SYSTEM,
+    },
+    {
+      userId: adminUser.id,
+      title: 'New Tutor Application',
+      message: 'A new tutor application is pending your review.',
+      type: NotificationType.ENROLLMENT,
+    }
+  ];
+
+  await prisma.notification.createMany({
+    data: notifications,
   });
 
   console.log('Seeding finished successfully.');

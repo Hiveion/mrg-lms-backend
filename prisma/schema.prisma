@@ -1,324 +1,14 @@
-generator client {
-  provider = "prisma-client-js"
-}
 
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id                  Int          @id @default(autoincrement()) @map("user_id")
-  email               String       @unique
-  passwordHash        String?      @map("password_hash")
-  firstName           String       @map("first_name")
-  lastName            String       @map("last_name")
-  phoneNumber         String?      @map("phone_number")
-  status              UserStatus   @default(INCOMPLETE)
-  userType            UserRole?    @map("user_type")
-  createdAt           DateTime     @default(now()) @map("created_at")
-  googleId            String?      @unique @map("google_id")
-  profilePicture      String?      @map("profile_picture")
-  updatedAt           DateTime     @updatedAt @map("updated_at")
-  mustChangePassword  Boolean      @default(false) @map("must_change_password")
-  invitationExpiresAt DateTime?    @map("invitation_expires_at")
-  coordinatorProfile  Coordinator?
-  parentProfile       Parent?
-  ratingLikes         RatingLike[]
-  ratings             Rating[]
-  uploadedResources   Resource[]
-  studentProfile      Student?
-  tutorProfile        Tutor?
-
-  @@map("users")
+generator client {
+  provider = "prisma-client-js"
 }
 
-model Tutor {
-  id                Int                 @id @default(autoincrement()) @map("tutor_id")
-  bio               String?
-  qualifications    String[]
-  applicationStatus ApplicationStatus   @default(PENDING) @map("application_status")
-  averageRating     Float               @default(0.0) @map("average_rating")
-  totalReviews      Int                 @default(0) @map("total_reviews")
-  userId            Int                 @unique @map("user_id")
-  classes           Class[]
-  ratings           Rating[]
-  availabilities    TutorAvailability[]
-  user              User                @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@map("tutors")
-}
-
-model Student {
-  id                  Int                   @id @default(autoincrement()) @map("student_id")
-  grade               String?
-  enrollmentDate      DateTime              @default(now()) @map("enrollment_date")
-  userId              Int                   @unique @map("user_id")
-  enrollments         Enrollment[]
-  homeworkSubmissions HomeworkSubmission[]
-  parents             ParentStudent[]
-  availabilities      StudentAvailability[]
-  user                User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@map("students")
-}
-
-model Parent {
-  id               Int             @id @default(autoincrement()) @map("parent_id")
-  occupation       String?
-  numberOfChildren Int?            @default(0) @map("number_of_children")
-  createdAt        DateTime        @default(now()) @map("created_at")
-  userId           Int             @unique @map("user_id")
-  students         ParentStudent[]
-  user             User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@map("parents")
-}
-
-model ParentStudent {
-  id           Int      @id @default(autoincrement()) @map("parent_student_id")
-  parentId     Int      @map("parent_id")
-  studentId    Int      @map("student_id")
-  relationship String
-  createdAt    DateTime @default(now()) @map("created_at")
-  parent       Parent   @relation(fields: [parentId], references: [id], onDelete: Cascade)
-  student      Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
-
-  @@unique([parentId, studentId])
-  @@map("parent_students")
-}
-
-model Coordinator {
-  id        Int      @id @default(autoincrement()) @map("coordinator_id")
-  createdAt DateTime @default(now()) @map("created_at")
-  userId    Int      @unique @map("user_id")
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@map("coordinators")
-}
-
-model Subject {
-  id          Int      @id @default(autoincrement()) @map("subject_id")
-  name        String   @unique
-  description String?
-  code        String?  @unique
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
-  classes     Class[]
-
-  @@map("subjects")
-}
-
-model Class {
-  id                  Int             @id @default(autoincrement()) @map("class_id")
-  name                String          @map("class_name")
-  subjectId           Int             @map("subject_id")
-  tutorId             Int             @map("tutor_id")
-  grade               String?
-  isActive            Boolean         @default(true) @map("is_active")
-  isDemo              Boolean         @default(true) @map("is_demo")
-  currentStudentCount Int             @default(0) @map("current_student_count")
-  maxStudentCount     Int?            @map("max_student_count")
-  createdAt           DateTime        @default(now()) @map("created_at")
-  updatedAt           DateTime        @updatedAt @map("updated_at")
-  classFee            Float           @default(0.0) @map("class_fee")
-  frequency           Int             @default(1)
-  schedules           ClassSchedule[]
-  subject             Subject         @relation(fields: [subjectId], references: [id])
-  tutor               Tutor           @relation(fields: [tutorId], references: [id])
-  enrollments         Enrollment[]
-  homeworks           Homework[]
-  resources           Resource[]
-  sessions            Session[]
-
-  @@map("classes")
-}
-
-model ClassSchedule {
-  id        Int      @id @default(autoincrement()) @map("schedule_id")
-  classId   Int      @map("class_id")
-  day       WeekDay
-  startTime String   @map("start_time")
-  duration  Int
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-  class     Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
-
-  @@map("class_schedules")
-}
-
-model Rating {
-  id              Int          @id @default(autoincrement()) @map("rating_id")
-  tutorId         Int          @map("tutor_id")
-  overallRating   Float        @map("overall_rating")
-  teachingQuality Int          @map("teaching_quality")
-  communication   Int          @map("communication")
-  punctuality     Int          @map("punctuality")
-  review          String?
-  createdAt       DateTime     @default(now()) @map("created_at")
-  updatedAt       DateTime     @updatedAt @map("updated_at")
-  likes           Int          @default(0)
-  userId          Int          @map("user_id")
-  ratingLikes     RatingLike[]
-  tutor           Tutor        @relation(fields: [tutorId], references: [id], onDelete: Cascade)
-  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, tutorId])
-  @@map("ratings")
-}
-
-model RatingLike {
-  id       Int    @id @default(autoincrement()) @map("rating_like_id")
-  userId   Int    @map("user_id")
-  ratingId Int    @map("review_id")
-  rating   Rating @relation(fields: [ratingId], references: [id], onDelete: Cascade)
-  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, ratingId])
-  @@map("rating_likes")
-}
-
-model Session {
-  id                   Int           @id @default(autoincrement()) @map("session_id")
-  classId              Int           @map("class_id")
-  dateTime             DateTime      @map("date_time")
-  duration             Int
-  status               SessionStatus @default(SCHEDULED)
-  rescheduledSessionId Int?          @map("rescheduled_session_id")
-  cancellationReason   String?       @map("cancellation_reason")
-  link                 String?
-  createdAt            DateTime      @default(now()) @map("created_at")
-  updatedAt            DateTime      @updatedAt @map("updated_at")
-  class                Class         @relation(fields: [classId], references: [id], onDelete: Cascade)
-  rescheduledSession   Session?      @relation("RescheduledSession", fields: [rescheduledSessionId], references: [id])
-  nextSessions         Session[]     @relation("RescheduledSession")
-
-  @@map("sessions")
-}
-
-model Enrollment {
-  id               Int              @id @default(autoincrement()) @map("enrollment_id")
-  studentId        Int              @map("student_id")
-  classId          Int              @map("class_id")
-  enrollmentDate   DateTime         @default(now()) @map("enrollment_date")
-  assignedPrice    Float            @map("assigned_price")
-  status           EnrollmentStatus @default(REQUESTED)
-  confirmationDate DateTime?        @map("confirmation_date")
-  createdAt        DateTime         @default(now()) @map("created_at")
-  updatedAt        DateTime         @updatedAt @map("updated_at")
-  description      String?          @map("description")
-  class            Class            @relation(fields: [classId], references: [id], onDelete: Cascade)
-  student          Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
-
-  @@unique([studentId, classId])
-  @@map("enrollments")
-}
-
-model Homework {
-  id           Int                  @id @default(autoincrement()) @map("homework_id")
-  classId      Int                  @map("class_id")
-  title        String
-  description  String?
-  type         HomeworkType         @default(FILE)
-  fileUrl      String?              @map("file_url")
-  totalMarks   Float                @map("total_marks")
-  deadlineType DeadlineType         @default(FIXED_DATE) @map("deadline_type")
-  deadlineDate DateTime?            @map("deadline_date")
-  deadlineDays Int?                 @map("deadline_days")
-  createdAt    DateTime             @default(now()) @map("created_at")
-  updatedAt    DateTime             @updatedAt @map("updated_at")
-  questions    HomeworkQuestion[]
-  submissions  HomeworkSubmission[]
-  class        Class                @relation(fields: [classId], references: [id], onDelete: Cascade)
-
-  @@map("homeworks")
-}
-
-model HomeworkQuestion {
-  id            Int                @id @default(autoincrement()) @map("question_id")
-  homeworkId    Int                @map("homework_id")
-  questionText  String             @map("question_text")
-  questionType  QuestionType       @map("question_type")
-  marks         Float
-  correctAnswer String?            @map("correct_answer")
-  homework      Homework           @relation(fields: [homeworkId], references: [id], onDelete: Cascade)
-  answers       SubmissionAnswer[]
-
-  @@map("homework_questions")
-}
-
-model HomeworkSubmission {
-  id                Int                @id @default(autoincrement()) @map("submission_id")
-  homeworkId        Int                @map("homework_id")
-  studentId         Int                @map("student_id")
-  submittedAt       DateTime           @default(now()) @map("submitted_at")
-  status            SubmissionStatus   @default(PENDING)
-  totalMarksAwarded Float?             @map("total_marks_awarded")
-  feedback          String?
-  submissionFileUrl String?            @map("submission_file_url")
-  createdAt         DateTime           @default(now()) @map("created_at")
-  updatedAt         DateTime           @updatedAt @map("updated_at")
-  homework          Homework           @relation(fields: [homeworkId], references: [id], onDelete: Cascade)
-  student           Student            @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  answers           SubmissionAnswer[]
-
-  @@map("homework_submissions")
-}
-
-model SubmissionAnswer {
-  id           Int                @id @default(autoincrement()) @map("answer_id")
-  submissionId Int                @map("submission_id")
-  questionId   Int                @map("question_id")
-  answerText   String?            @map("answer_text")
-  marksAwarded Float?             @map("marks_awarded")
-  question     HomeworkQuestion   @relation(fields: [questionId], references: [id], onDelete: Cascade)
-  submission   HomeworkSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
-
-  @@map("submission_answers")
-}
-
-model TutorAvailability {
-  id        Int      @id @default(autoincrement()) @map("availability_id")
-  tutorId   Int      @map("tutor_id")
-  day       WeekDay
-  startTime String   @map("start_time") //starttime
-  endTime   String   @map("end_time")
-  createdAt DateTime @default(now()) @map("created_at")
-  tutor     Tutor    @relation(fields: [tutorId], references: [id], onDelete: Cascade)
-
-  @@map("tutor_availabilities")
-}
-
-model StudentAvailability {
-  id        Int      @id @default(autoincrement()) @map("availability_id")
-  studentId Int      @map("student_id")
-  day       WeekDay
-  startTime String   @map("start_time")
-  endTime   String   @map("end_time")
-  createdAt DateTime @default(now()) @map("created_at")
-  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
-
-  @@map("student_availabilities")
-}
-
-model Resource {
-  id            Int      @id @default(autoincrement()) @map("resource_id")
-  classId       Int      @map("class_id")
-  uploaderId    Int      @map("uploader_id")
-  title         String
-  description   String?
-  fileUrl       String   @map("file_url")
-  fileType      String   @map("file_type")
-  fileSize      Int      @map("file_size")
-  downloadCount Int      @default(0) @map("download_count")
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
-  class         Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
-  uploader      User     @relation(fields: [uploaderId], references: [id], onDelete: Cascade)
-
-  @@map("resources")
-}
-
+// User Roles
 enum UserRole {
   ADMIN
   COORDINATOR
@@ -327,6 +17,7 @@ enum UserRole {
   PARENT
 }
 
+// Account Status
 enum UserStatus {
   ACTIVE
   INACTIVE
@@ -334,6 +25,7 @@ enum UserStatus {
   INCOMPLETE
 }
 
+// Tutor Application Status
 enum ApplicationStatus {
   PENDING
   ACCEPTED
@@ -347,7 +39,7 @@ enum EnrollmentStatus {
   ACTIVE
   INACTIVE
 }
-
+// Session Status
 enum SessionStatus {
   SCHEDULED
   ONGOING
@@ -356,6 +48,7 @@ enum SessionStatus {
   RESCHEDULED
 }
 
+// Homework Enums
 enum HomeworkType {
   QUIZ
   FILE
@@ -389,3 +82,367 @@ enum WeekDay {
   SATURDAY
   SUNDAY
 }
+
+model User {
+  id             Int        @id @default(autoincrement()) @map("user_id")
+  email          String     @unique
+  googleId       String?    @unique @map("google_id")
+  passwordHash   String?    @map("password_hash")
+  firstName      String     @map("first_name")
+  lastName       String     @map("last_name")
+  profilePicture String?    @map("profile_picture")
+  phoneNumber    String?    @map("phone_number")
+  createdAt      DateTime   @default(now()) @map("created_at")
+  updatedAt      DateTime   @updatedAt @map("updated_at")
+  status         UserStatus @default(INCOMPLETE)
+  userType       UserRole?  @map("user_type")
+  mustChangePassword Boolean @default(false) @map("must_change_password")
+  invitationExpiresAt DateTime? @map("invitation_expires_at")
+
+  // Relationships
+  tutorProfile       Tutor?
+  studentProfile     Student?
+  parentProfile      Parent?
+  coordinatorProfile Coordinator?
+  ratingLikes        RatingLike[]
+  ratings            Rating[]
+  notifications      Notification[]
+
+  @@map("users")
+}
+
+model Tutor {
+  id                Int               @id @default(autoincrement()) @map("tutor_id")
+  bio               String?
+  qualifications    String[]
+  applicationStatus ApplicationStatus @default(PENDING) @map("application_status")
+  averageRating     Float             @default(0.0) @map("average_rating")
+  totalReviews      Int               @default(0) @map("total_reviews")
+
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId Int  @unique @map("user_id")
+
+  classes Class[]
+  ratings Rating[]
+  availabilities TutorAvailability[]
+
+  @@map("tutors")
+}
+
+model Student {
+  id             Int             @id @default(autoincrement()) @map("student_id")
+  grade          String?
+  enrollmentDate DateTime        @default(now()) @map("enrollment_date")
+
+  user    User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId  Int             @unique @map("user_id")
+  parents ParentStudent[]
+  enrollments         Enrollment[]
+  homeworkSubmissions HomeworkSubmission[]
+  availabilities      StudentAvailability[]
+  rescheduleRequests  RescheduleRequest[]
+
+  @@map("students")
+}
+
+model Parent {
+  id               Int             @id @default(autoincrement()) @map("parent_id")
+  occupation       String?
+  numberOfChildren Int?            @default(0) @map("number_of_children")
+  createdAt        DateTime        @default(now()) @map("created_at")
+
+  user     User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId   Int             @unique @map("user_id")
+  students ParentStudent[]
+
+  @@map("parents")
+}
+
+model ParentStudent {
+  id           Int      @id @default(autoincrement()) @map("parent_student_id")
+  parentId     Int      @map("parent_id")
+  studentId    Int      @map("student_id")
+  relationship String   // "Mother", "Father", "Guardian", etc.
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  parent  Parent  @relation(fields: [parentId], references: [id], onDelete: Cascade)
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([parentId, studentId])
+  @@map("parent_students")
+}
+
+model Coordinator {
+  id        Int       @id @default(autoincrement()) @map("coordinator_id")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId   Int       @unique @map("user_id")
+
+  @@map("coordinators")
+}
+
+model Subject {
+  id            Int          @id @default(autoincrement()) @map("subject_id")
+  name          String       @unique
+  description   String?
+  code          String?      @unique // e.g., "MATH101", "ENG201"
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  classes Class[]
+
+  @@map("subjects")
+}
+
+model Class {
+  id                  Int      @id @default(autoincrement()) @map("class_id")
+  name                String   @map("class_name")
+  subjectId           Int      @map("subject_id")
+  tutorId             Int      @map("tutor_id")
+  grade               String?
+  isActive            Boolean  @default(true) @map("is_active")
+  isDemo              Boolean  @default(true) @map("is_demo")
+  frequency           Int      @default(1)
+  currentStudentCount Int      @default(0) @map("current_student_count")
+  maxStudentCount     Int?     @map("max_student_count")
+  classFee            Float    @default(0.0) @map("class_fee")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  subject    Subject      @relation(fields: [subjectId], references: [id])
+  tutor      Tutor        @relation(fields: [tutorId], references: [id])
+  sessions   Session[]
+  schedules  ClassSchedule[]
+  enrollments Enrollment[]
+  homeworks  Homework[]
+
+  @@map("classes")
+}
+
+model ClassSchedule {
+  id        Int      @id @default(autoincrement()) @map("schedule_id")
+  classId   Int      @map("class_id")
+  day       WeekDay
+  startTime String   @map("start_time") // HH:mm
+  duration  Int      // in minutes
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  class     Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+
+  @@map("class_schedules")
+}
+
+model Rating {
+  id              Int      @id @default(autoincrement()) @map("rating_id")
+  userId          Int      @map("user_id")
+  tutorId         Int      @map("tutor_id")
+  overallRating   Float    @map("overall_rating")
+  teachingQuality Int      @map("teaching_quality")
+  communication   Int      @map("communication")
+  punctuality     Int      @map("punctuality")
+  review          String?
+  likes           Int      @default(0)
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tutor           Tutor        @relation(fields: [tutorId], references: [id], onDelete: Cascade)
+  ratingLikes     RatingLike[]
+
+  @@unique([userId, tutorId])
+  @@map("ratings")
+}
+
+model RatingLike {
+  id       Int  @id @default(autoincrement()) @map("rating_like_id")
+  userId   Int  @map("user_id")
+  ratingId Int  @map("review_id")
+
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rating   Rating @relation(fields: [ratingId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, ratingId])
+  @@map("rating_likes")
+}
+
+model Session {
+  id                   Int           @id @default(autoincrement()) @map("session_id")
+  classId              Int           @map("class_id")
+  dateTime             DateTime      @map("date_time")
+  duration             Int // in minutes
+  status               SessionStatus @default(SCHEDULED)
+  rescheduledSessionId Int?          @map("rescheduled_session_id")
+  cancellationReason   String?       @map("cancellation_reason")
+  link                 String?
+  createdAt            DateTime      @default(now()) @map("created_at")
+  updatedAt            DateTime      @updatedAt @map("updated_at")
+
+  class                Class               @relation(fields: [classId], references: [id], onDelete: Cascade)
+  rescheduledSession   Session?            @relation("RescheduledSession", fields: [rescheduledSessionId], references: [id])
+  nextSessions         Session[]           @relation("RescheduledSession")
+  rescheduleRequests   RescheduleRequest[]
+
+  @@map("sessions")
+}
+
+model Enrollment {
+  id               Int              @id @default(autoincrement()) @map("enrollment_id")
+  studentId        Int              @map("student_id")
+  classId          Int              @map("class_id")
+  enrollmentDate   DateTime         @default(now()) @map("enrollment_date")
+  assignedPrice    Float            @map("assigned_price")
+  description      String?          @map("description")
+  status           EnrollmentStatus @default(REQUESTED)
+  confirmationDate DateTime?        @map("confirmation_date")
+  createdAt        DateTime         @default(now()) @map("created_at")
+  updatedAt        DateTime         @updatedAt @map("updated_at")
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  class   Class   @relation(fields: [classId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, classId])
+  @@map("enrollments")
+}
+
+model Homework {
+  id           Int           @id @default(autoincrement()) @map("homework_id")
+  classId      Int           @map("class_id")
+  title        String
+  description  String?
+  type         HomeworkType  @default(FILE)
+  fileUrl      String?       @map("file_url")
+  totalMarks   Float         @map("total_marks")
+  deadlineType DeadlineType  @default(FIXED_DATE) @map("deadline_type")
+  deadlineDate DateTime?     @map("deadline_date")
+  deadlineDays Int?          @map("deadline_days")
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+
+  class        Class         @relation(fields: [classId], references: [id], onDelete: Cascade)
+  questions    HomeworkQuestion[]
+  submissions  HomeworkSubmission[]
+
+  @@map("homeworks")
+}
+
+model HomeworkQuestion {
+  id            Int          @id @default(autoincrement()) @map("question_id")
+  homeworkId    Int          @map("homework_id")
+  questionText  String       @map("question_text")
+  questionType  QuestionType @map("question_type")
+  marks         Float
+  correctAnswer String?      @map("correct_answer")
+
+  homework      Homework     @relation(fields: [homeworkId], references: [id], onDelete: Cascade)
+  answers       SubmissionAnswer[]
+
+  @@map("homework_questions")
+}
+
+model HomeworkSubmission {
+  id                Int              @id @default(autoincrement()) @map("submission_id")
+  homeworkId        Int              @map("homework_id")
+  studentId         Int              @map("student_id")
+  submittedAt       DateTime         @default(now()) @map("submitted_at")
+  status            SubmissionStatus @default(PENDING)
+  totalMarksAwarded Float?           @map("total_marks_awarded")
+  feedback          String?
+  submissionFileUrl String?          @map("submission_file_url")
+  createdAt         DateTime         @default(now()) @map("created_at")
+  updatedAt         DateTime         @updatedAt @map("updated_at")
+
+  homework          Homework         @relation(fields: [homeworkId], references: [id], onDelete: Cascade)
+  student           Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  answers           SubmissionAnswer[]
+
+  @@map("homework_submissions")
+}
+
+model SubmissionAnswer {
+  id            Int                @id @default(autoincrement()) @map("answer_id")
+  submissionId  Int                @map("submission_id")
+  questionId    Int                @map("question_id")
+  answerText    String?            @map("answer_text")
+  marksAwarded  Float?             @map("marks_awarded")
+
+  submission    HomeworkSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  question      HomeworkQuestion   @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@map("submission_answers")
+}
+
+model TutorAvailability {
+  id        Int      @id @default(autoincrement()) @map("availability_id")
+  tutorId   Int      @map("tutor_id")
+  day       WeekDay
+  startTime String   @map("start_time") // Using string for time like "14:00"
+  endTime   String   @map("end_time")   // Using string for time like "16:00"
+  createdAt DateTime @default(now()) @map("created_at")
+
+  tutor     Tutor    @relation(fields: [tutorId], references: [id], onDelete: Cascade)
+
+  @@map("tutor_availabilities")
+}
+
+model StudentAvailability {
+  id        Int      @id @default(autoincrement()) @map("availability_id")
+  studentId Int      @map("student_id")
+  day       WeekDay
+  startTime String   @map("start_time")
+  endTime   String   @map("end_time")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@map("student_availabilities")
+}
+
+enum RescheduleStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+}
+
+model RescheduleRequest {
+  id               Int              @id @default(autoincrement()) @map("reschedule_id")
+  sessionId        Int              @map("session_id")
+  studentId        Int              @map("student_id")
+  proposedDateTime DateTime         @map("proposed_date_time")
+  reason           String?
+  status           RescheduleStatus @default(PENDING)
+  responseReason   String?          @map("response_reason")
+  createdAt        DateTime         @default(now()) @map("created_at")
+  updatedAt        DateTime         @updatedAt @map("updated_at")
+
+  session  Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  student  Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@map("reschedule_requests")
+}
+
+enum NotificationType {
+  SYSTEM
+  CLASS
+  HOMEWORK
+  PAYMENT
+  ENROLLMENT
+  RESCHEDULE
+}
+
+model Notification {
+  id        Int              @id @default(autoincrement()) @map("notification_id")
+  userId    Int              @map("user_id")
+  title     String
+  message   String
+  type      NotificationType @default(SYSTEM)
+  isRead    Boolean          @default(false) @map("is_read")
+  createdAt DateTime         @default(now()) @map("created_at")
+  updatedAt DateTime         @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
+
