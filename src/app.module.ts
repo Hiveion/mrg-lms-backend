@@ -16,15 +16,8 @@ import { MailModule } from './Modules/mail.module';
 import { SchedulingModule } from './Modules/scheduling.module';
 import { ResourceModule } from './Modules/resource.module';
 
-import { join } from 'path';
-import { ServeStaticModule } from '@nestjs/serve-static';
-
 @Module({
   imports: [
-    ServeStaticModule.forRoot({
-      rootPath: join(__dirname, '..', '..', 'uploads'),
-      serveRoot: '/uploads',
-    }),
     DatabaseModule,
     AuthModule,
     UsersModule,
@@ -37,7 +30,7 @@ import { ServeStaticModule } from '@nestjs/serve-static';
     AdminModule,
     MailModule,
     SchedulingModule,
-    ResourceModule,
+    ResourceModule
   ],
   controllers: [AppController],
   providers: [AppService],
