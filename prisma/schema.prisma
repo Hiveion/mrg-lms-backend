@@ -281,7 +281,7 @@ model TutorAvailability {
   id        Int      @id @default(autoincrement()) @map("availability_id")
   tutorId   Int      @map("tutor_id")
   day       WeekDay
-  startTime String   @map("start_time")
+  startTime String   @map("start_time") //starttime
   endTime   String   @map("end_time")
   createdAt DateTime @default(now()) @map("created_at")
   tutor     Tutor    @relation(fields: [tutorId], references: [id], onDelete: Cascade)
