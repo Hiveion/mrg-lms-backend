@@ -9,10 +9,15 @@ import {
     ParseIntPipe,
     UseGuards,
     Request,
+    UseInterceptors,
+    UploadedFile,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { ResourceService } from '../Services/resource.service';
 import { CreateResourceDto, UpdateResourceDto } from '../DTOs/resource.dto';
+import { diskStorage } from 'multer';
+import { extname } from 'path';
 
 @Controller('resources')
 @UseGuards(AuthGuard('jwt'))
@@ -20,7 +25,29 @@ export class ResourceController {
     constructor(private readonly resourceService: ResourceService) { }
 
     @Post()
-    async create(@Request() req: any, @Body() createResourceDto: CreateResourceDto) {
+    @UseInterceptors(FileInterceptor('file', {
+        storage: diskStorage({
+            destination: './uploads/resources',
+            filename: (req, file, cb) => {
+                const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+                cb(null, `${file.fieldname}-${uniqueSuffix}${extname(file.originalname)}`);
+            },
+        }),
+    }))
+    async create(
+        @Request() req: any,
+        @UploadedFile() file: Express.Multer.File,
+        @Body() body: any // Use any because DTO validation might fail with multipart if not handled
+    ) {
+        // Map body fields manually if needed, or use a partial DTO
+        const createResourceDto: CreateResourceDto = {
+            classId: parseInt(body.classId),
+            title: body.title,
+            description: body.description,
+            fileUrl: file ? `/uploads/resources/${file.filename}` : body.fileUrl,
+            fileType: file ? file.mimetype.split('/')[1] : body.fileType,
+            fileSize: file ? file.size : parseInt(body.fileSize || 0),
+        };
         return this.resourceService.create(req.user.id, createResourceDto);
     }
 
