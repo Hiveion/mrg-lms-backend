@@ -53,6 +53,22 @@ export class ClassService {
         });
     }
 
+    async findTutorClasses(userId: number) {
+        return this.prisma.class.findMany({
+            where: {
+                tutor: {
+                    userId: userId,
+                },
+            },
+            include: {
+                subject: true,
+                schedules: {
+                    orderBy: { day: 'asc' },
+                },
+            },
+        });
+    }
+
     async findOne(id: number) {
         const classItem = await this.prisma.class.findUnique({
             where: { id },

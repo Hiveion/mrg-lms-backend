@@ -61,6 +61,29 @@ async function main() {
     include: { tutorProfile: true },
   });
 
+  // 1b. Create another Tutor: Dr. Sarah Jenkins
+  const tutorUser2 = await prisma.user.create({
+    data: {
+      email: 'sarah.jenkins@mrg-lms.com',
+      passwordHash,
+      firstName: 'Sarah',
+      lastName: 'Jenkins',
+      status: UserStatus.ACTIVE,
+      userType: UserRole.TUTOR,
+      tutorProfile: {
+        create: {
+          bio: 'Expert in Humanities and Social Sciences.',
+          qualifications: ['M.A. History', 'B.A. Economics'],
+          applicationStatus: 'ACCEPTED',
+        },
+      },
+    },
+    include: { tutorProfile: true },
+  });
+
+  const tutorId = tutorUser.tutorProfile!.id;
+  const tutorId2 = tutorUser2.tutorProfile!.id;
+
   // 2. Create Student: Alice Johnson
   const studentUser = await prisma.user.create({
     data: {
@@ -104,7 +127,6 @@ async function main() {
     include: { studentProfile: true },
   });
 
-  const tutorId = tutorUser.tutorProfile!.id;
   const studentId = studentUser.studentProfile!.id;
   const bobId = studentUser2.studentProfile!.id;
   const carolId = studentUser3.studentProfile!.id;
@@ -209,7 +231,7 @@ async function main() {
       data: {
         name: cd.name,
         subjectId: subjects[i].id,
-        tutorId: tutorId,
+        tutorId: i < 5 ? tutorId : tutorId2,
         grade: 'Grade 12',
         isActive: true,
         classFee: cd.fee,
@@ -350,18 +372,22 @@ async function main() {
     { title: 'Practice Problems: Quadratic Equations', description: 'Optional practice set for algebra reinforcement.', fileUrl: 'https://example.com/math_practice.pdf', fileType: 'pdf', fileSize: 1024 * 1024 * 0.8 },
   ];
 
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < 7; i++) {
     const classItem = classes[i];
     // Each of the first 5 classes gets a couple of resources
+    // Classes 5 and 6 also get resources (taught by Sarah, Alice not enrolled)
+    const uploader = i < 5 ? tutorUser : tutorUser2;
+    const rdIndex = i % resourceData.length;
+
     await prisma.resource.create({
       data: {
         classId: classItem.id,
-        uploaderId: tutorUser.id,
-        title: resourceData[i].title,
-        description: resourceData[i].description,
-        fileUrl: resourceData[i].fileUrl,
-        fileType: resourceData[i].fileType,
-        fileSize: resourceData[i].fileSize,
+        uploaderId: uploader.id,
+        title: resourceData[rdIndex].title,
+        description: resourceData[rdIndex].description,
+        fileUrl: resourceData[rdIndex].fileUrl,
+        fileType: resourceData[rdIndex].fileType,
+        fileSize: resourceData[rdIndex].fileSize,
       }
     });
 
