@@ -126,7 +126,7 @@ export class AdminService {
     }
 
     async assignClass(dto: AssignClassDto) {
-        const { studentId, tutorId, subjectId, schedule, startDate, numberOfWeeks = 4, grade } = dto;
+        const { studentId, tutorId, subjectId, schedule, startDate, numberOfWeeks = 4, grade, createSessions = true } = dto;
 
         // Verify entities exist
         const student = await this.prisma.student.findUnique({ where: { id: studentId }, include: { user: true } });
@@ -174,29 +174,31 @@ export class AdminService {
                 }
             });
 
-            // 3. Generate Sessions
-            const sessionData: any[] = [];
-            const start = startDate ? new Date(startDate) : new Date();
+            // 3. Generate Sessions (Optional)
+            if (createSessions) {
+                const sessionData: any[] = [];
+                const start = startDate ? new Date(startDate) : new Date();
 
-            for (let i = 0; i < numberOfWeeks; i++) {
-                for (const slot of schedule) {
-                    const sessionDate = this.getNextOccurrence(start, slot.day, i);
-                    const [hours, minutes] = slot.startTime.split(':').map(Number);
-                    sessionDate.setHours(hours, minutes, 0, 0);
+                for (let i = 0; i < numberOfWeeks; i++) {
+                    for (const slot of schedule) {
+                        const sessionDate = this.getNextOccurrence(start, slot.day, i);
+                        const [hours, minutes] = slot.startTime.split(':').map(Number);
+                        sessionDate.setHours(hours, minutes, 0, 0);
 
-                    sessionData.push({
-                        classId: newClass.id,
-                        dateTime: sessionDate,
-                        duration: slot.duration,
-                        status: SessionStatus.SCHEDULED,
+                        sessionData.push({
+                            classId: newClass.id,
+                            dateTime: sessionDate,
+                            duration: slot.duration,
+                            status: SessionStatus.SCHEDULED,
+                        });
+                    }
+                }
+
+                if (sessionData.length > 0) {
+                    await tx.session.createMany({
+                        data: sessionData,
                     });
                 }
-            }
-
-            if (sessionData.length > 0) {
-                await tx.session.createMany({
-                    data: sessionData,
-                });
             }
 
             // 4. Punch the class slot out of the tutor's and student's availability calendars
@@ -377,7 +379,6 @@ export class AdminService {
             }
         }
     }
-}
 
     async approveUser(userId: number) {
         const user = await this.prisma.user.findUnique({
