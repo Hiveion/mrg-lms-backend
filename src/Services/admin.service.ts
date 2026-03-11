@@ -377,6 +377,7 @@ export class AdminService {
             }
         }
     }
+}
 
     async approveUser(userId: number) {
         const user = await this.prisma.user.findUnique({
