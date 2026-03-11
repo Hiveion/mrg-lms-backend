@@ -1,4 +1,4 @@
-import { IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, MinLength, IsInt, IsArray, ValidateNested, IsNumber } from 'class-validator';
+import { IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, MinLength, IsInt, IsArray, ValidateNested, IsNumber, IsBoolean } from 'class-validator';
 import { Type } from 'class-transformer';
 import { UserRole, WeekDay } from '@prisma/client';
 
@@ -98,4 +98,8 @@ export class AssignClassDto {
     @IsNumber()
     @IsOptional()
     studentPrice?: number;
+
+    @IsBoolean()
+    @IsOptional()
+    createSessions?: boolean;
 }

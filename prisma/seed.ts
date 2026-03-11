@@ -8,6 +8,7 @@ async function main() {
   console.log('Start seeding...');
 
   // Clean up existing data in correct order
+  await prisma.notification.deleteMany();
   await prisma.ratingLike.deleteMany();
   await prisma.rating.deleteMany();
   await prisma.submissionAnswer.deleteMany();
@@ -768,6 +769,69 @@ async function main() {
       // Saturday  13:00 – 16:00
       { studentId: carolId, day: WeekDay.SATURDAY, startTime: '13:00', endTime: '16:00' },
     ],
+  });
+
+  // 11. Notification Seeding
+  console.log('Seeding notifications...');
+  const { NotificationType } = require('@prisma/client');
+
+  const notifications = [
+    // Alice (Student)
+    {
+      userId: studentUser.id,
+      title: 'New Class Scheduled',
+      message: 'Your Mathematics class has been scheduled for tomorrow at 10:00 AM.',
+      type: NotificationType.CLASS,
+    },
+    {
+      userId: studentUser.id,
+      title: 'Homework Assigned',
+      message: 'A new homework "Calculus Worksheet 1" has been assigned.',
+      type: NotificationType.HOMEWORK,
+    },
+    // Bob (Student)
+    {
+      userId: studentUser2.id,
+      title: 'Payment Received',
+      message: 'Your payment for the month of March has been processed.',
+      type: NotificationType.PAYMENT,
+    },
+    {
+      userId: studentUser2.id,
+      title: 'Reschedule Update',
+      message: 'Your request to reschedule Chemistry has been accepted.',
+      type: NotificationType.RESCHEDULE,
+    },
+    // Robert (Tutor)
+    {
+      userId: tutorUser.id,
+      title: 'New Student Enrolled',
+      message: 'Alice Johnson has joined your Mathematics class.',
+      type: NotificationType.ENROLLMENT,
+    },
+    {
+      userId: tutorUser.id,
+      title: 'Reschedule Requested',
+      message: 'Bob Martin has requested to reschedule the Physics session.',
+      type: NotificationType.RESCHEDULE,
+    },
+    // Admin
+    {
+      userId: adminUser.id,
+      title: 'System Alert',
+      message: 'Server maintenance scheduled for Sunday at 2:00 AM.',
+      type: NotificationType.SYSTEM,
+    },
+    {
+      userId: adminUser.id,
+      title: 'New Tutor Application',
+      message: 'A new tutor application is pending your review.',
+      type: NotificationType.ENROLLMENT,
+    }
+  ];
+
+  await prisma.notification.createMany({
+    data: notifications,
   });
 
   console.log('Seeding finished successfully.');
