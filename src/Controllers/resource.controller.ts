@@ -37,15 +37,14 @@ export class ResourceController {
     async create(
         @Request() req: any,
         @UploadedFile() file: Express.Multer.File,
-        @Body() body: any // Use any because DTO validation might fail with multipart if not handled
+        @Body() body: any
     ) {
-        // Map body fields manually if needed, or use a partial DTO
         const createResourceDto: CreateResourceDto = {
             classId: parseInt(body.classId),
             title: body.title,
             description: body.description,
             fileUrl: file ? `/uploads/resources/${file.filename}` : body.fileUrl,
-            fileType: file ? file.mimetype.split('/')[1] : body.fileType,
+            fileType: file ? extname(file.originalname).replace('.', '').toLowerCase() : body.fileType,
             fileSize: file ? file.size : parseInt(body.fileSize || 0),
         };
         return this.resourceService.create(req.user.id, createResourceDto);
