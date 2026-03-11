@@ -8,6 +8,7 @@ async function main() {
   console.log('Start seeding...');
 
   // Clean up existing data in correct order
+  await prisma.resource.deleteMany();
   await prisma.ratingLike.deleteMany();
   await prisma.rating.deleteMany();
   await prisma.submissionAnswer.deleteMany();
@@ -338,6 +339,47 @@ async function main() {
       });
     }
   }
+
+  console.log('Seeding resources for Alice and Robert...');
+  const resourceData = [
+    { title: 'Lecture 1: Limits & Continuity Notes', description: 'Basic introduction to limits and continuity with examples.', fileUrl: 'https://example.com/math101_v1.pdf', fileType: 'pdf', fileSize: 1024 * 1024 * 1.5 },
+    { title: 'Calculus Formula Sheet', description: 'Essential formulas for derivatives and integrals.', fileUrl: 'https://example.com/formula_sheet.pdf', fileType: 'pdf', fileSize: 1024 * 512 },
+    { title: 'Quantum Mechanics: Introduction Slides', description: 'Lecture slides for the first week of Quantum Mechanics.', fileUrl: 'https://example.com/phys101_intro.pdf', fileType: 'pdf', fileSize: 1024 * 1024 * 3.2 },
+    { title: 'Organic Chemistry: Lab Safety Rules', description: 'Mandatory reading before the first lab session.', fileUrl: 'https://example.com/lab_safety.pdf', fileType: 'pdf', fileSize: 1024 * 256 },
+    { title: 'Genetics: Chapter 1 Summary', description: 'Summary of the Mendel’s Laws and inheritance basics.', fileUrl: 'https://example.com/biol101_ch1.pdf', fileType: 'pdf', fileSize: 1024 * 1024 * 1.1 },
+    { title: 'Practice Problems: Quadratic Equations', description: 'Optional practice set for algebra reinforcement.', fileUrl: 'https://example.com/math_practice.pdf', fileType: 'pdf', fileSize: 1024 * 1024 * 0.8 },
+  ];
+
+  for (let i = 0; i < 5; i++) {
+    const classItem = classes[i];
+    // Each of the first 5 classes gets a couple of resources
+    await prisma.resource.create({
+      data: {
+        classId: classItem.id,
+        uploaderId: tutorUser.id,
+        title: resourceData[i].title,
+        description: resourceData[i].description,
+        fileUrl: resourceData[i].fileUrl,
+        fileType: resourceData[i].fileType,
+        fileSize: resourceData[i].fileSize,
+      }
+    });
+
+    if (i < 2) { // Add an extra resource for the first 2 classes
+      await prisma.resource.create({
+        data: {
+          classId: classItem.id,
+          uploaderId: tutorUser.id,
+          title: resourceData[5].title,
+          description: resourceData[5].description,
+          fileUrl: resourceData[5].fileUrl,
+          fileType: resourceData[5].fileType,
+          fileSize: resourceData[5].fileSize,
+        }
+      });
+    }
+  }
+  console.log('Resources seeded.');
 
   // 7. Homeworks for each class
   const allHomeworks: any[] = [];
