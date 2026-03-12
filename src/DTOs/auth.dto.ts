@@ -80,3 +80,19 @@ export class ChangePasswordDto {
     @MinLength(8)
     newPassword: string;
 }
+
+export class ForgotPasswordDto {
+    @IsEmail()
+    email: string;
+}
+
+export class ResetPasswordDto {
+    @IsString()
+    @IsNotEmpty()
+    token: string;
+
+    @IsString()
+    @IsNotEmpty()
+    @MinLength(8)
+    newPassword: string;
+}

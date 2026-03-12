@@ -93,4 +93,26 @@ export class MailService {
       `,
     });
   }
+
+  async sendPasswordResetEmail(email: string, token: string) {
+    const resetUrl = `${process.env.FRONTEND_URL}/auth?tab=reset-password&token=${token}`;
+
+    await this.mailerService.sendMail({
+      to: email,
+      subject: 'Password Reset Request - MRG LMS',
+      html: `
+        <div style="font-family: sans-serif; line-height: 1.5; color: #333;">
+          <h2>Forgot Your Password?</h2>
+          <p>Hello,</p>
+          <p>We received a request to reset your password for your <strong>MRG LMS</strong> account.</p>
+          <p>This link is valid for <strong>1 hour</strong>.</p>
+          <p>Click the button below to set a new password:</p>
+          <a href="${resetUrl}" style="display: inline-block; padding: 10px 20px; background-color: #007bff; color: #fff; text-decoration: none; border-radius: 5px;">Reset Password</a>
+          <p>If you did not request a password reset, please ignore this email.</p>
+          <br>
+          <p>Best regards,<br>The MRG LMS Team</p>
+        </div>
+      `,
+    });
+  }
 }
