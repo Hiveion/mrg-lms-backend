@@ -11,10 +11,16 @@ export class RecordingController {
     @UseGuards(AuthGuard('jwt'))
     @Post()
     async create(@Request() req: any, @Body() createRecordingDto: CreateRecordingDto) {
-        if (req.user.userType !== UserRole.ADMIN && req.user.userType !== UserRole.COORDINATOR) {
-            throw new ForbiddenException('Only administrators can create recordings');
+        if (req.user.userType !== UserRole.ADMIN && req.user.userType !== UserRole.COORDINATOR && req.user.userType !== UserRole.TUTOR) {
+            throw new ForbiddenException('Only administrators and tutors can create recordings');
         }
-        return this.recordingService.create(createRecordingDto);
+        return this.recordingService.create(createRecordingDto, req.user.id, req.user.userType);
+    }
+
+    @UseGuards(AuthGuard('jwt'))
+    @Get('metadata')
+    async getMetadata(@Request() req: any) {
+        return this.recordingService.getRecordingMetadata(req.user.id, req.user.userType);
     }
 
     @UseGuards(AuthGuard('jwt'))

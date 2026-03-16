@@ -1,13 +1,34 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../Database/prisma.service';
 import { CreateRecordingDto, UpdateRecordingDto } from '../DTOs/recording.dto';
-import { RecordingStatus, UserRole } from '@prisma/client';
+import { RecordingStatus, UserRole, SessionStatus } from '@prisma/client';
 
 @Injectable()
 export class RecordingService {
     constructor(private readonly prisma: PrismaService) { }
 
-    async create(createRecordingDto: CreateRecordingDto) {
+    async validateRecordingCreation(userId: number, userType: UserRole, classId: number) {
+        if (userType === UserRole.ADMIN || userType === UserRole.COORDINATOR) {
+            return true;
+        }
+
+        if (userType === UserRole.TUTOR) {
+            const classItem = await this.prisma.class.findUnique({
+                where: { id: classId },
+                include: { tutor: true },
+            });
+            return classItem?.tutor?.userId === userId;
+        }
+
+        return false;
+    }
+
+    async create(createRecordingDto: CreateRecordingDto, userId: number, userType: UserRole) {
+        const hasPermission = await this.validateRecordingCreation(userId, userType, createRecordingDto.classId);
+        if (!hasPermission) {
+            throw new ForbiddenException('You do not have permission to create recordings for this class');
+        }
+
         return this.prisma.recording.create({
             data: {
                 ...createRecordingDto,
@@ -192,5 +213,29 @@ export class RecordingService {
         }
 
         return false;
+    }
+
+    async getRecordingMetadata(userId: number, userType: UserRole) {
+        const classes = await this.prisma.class.findMany({
+            where: userType === UserRole.TUTOR ? { tutor: { userId } } : {},
+            include: {
+                sessions: {
+                    where: {
+                        status: SessionStatus.COMPLETED,
+                    },
+                    select: {
+                        id: true,
+                        dateTime: true,
+                        recording: true
+                    }
+                }
+            }
+        });
+
+        return classes.map(c => ({
+            id: c.id,
+            name: c.name,
+            sessions: (c as any).sessions.filter(s => !s.recording)
+        })).filter(c => c.sessions.length > 0);
     }
 }
