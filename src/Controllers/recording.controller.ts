@@ -58,8 +58,9 @@ export class RecordingController {
     @UseGuards(AuthGuard('jwt'))
     @Delete(':id')
     async remove(@Request() req: any, @Param('id', ParseIntPipe) id: number) {
-        if (req.user.userType !== UserRole.ADMIN && req.user.userType !== UserRole.COORDINATOR) {
-            throw new ForbiddenException('Only administrators can delete recordings');
+        const hasAccess = await this.recordingService.authorizeRecordingAccess(id, req.user.id, req.user.userType);
+        if (!hasAccess || (req.user.userType !== UserRole.ADMIN && req.user.userType !== UserRole.COORDINATOR && req.user.userType !== UserRole.TUTOR)) {
+            throw new ForbiddenException('You do not have permission to delete this recording');
         }
         return this.recordingService.remove(id);
     }

@@ -223,9 +223,7 @@ export class RecordingService {
                     where: {
                         status: SessionStatus.COMPLETED,
                     },
-                    select: {
-                        id: true,
-                        dateTime: true,
+                    include: {
                         recording: true
                     }
                 }
