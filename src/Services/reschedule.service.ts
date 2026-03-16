@@ -197,6 +197,17 @@ export class RescheduleService {
             console.error('Failed to notify student of accepted reschedule:', error);
         }
 
+        // NOTIFICATION: Notify Admins
+        try {
+            await this.notificationService.notifyAdmins(
+                'Class Rescheduled',
+                `A session for ${request.session.class.subject.name} - ${request.session.class.name} was rescheduled to ${new Date(request.proposedDateTime).toLocaleString()}.`,
+                NotificationType.RESCHEDULE
+            );
+        } catch (error) {
+            console.error('Failed to notify admins of accepted reschedule:', error);
+        }
+
         return result;
     }
 
@@ -341,6 +352,17 @@ export class RescheduleService {
             }
         } catch (error) {
             console.error('Failed to notify students of staff reschedule:', error);
+        }
+
+        // NOTIFICATION: Notify Admins
+        try {
+            await this.notificationService.notifyAdmins(
+                'Class Rescheduled',
+                `A session for ${session.class.subject.name} - ${session.class.name} was rescheduled to ${new Date(dto.proposedDateTime).toLocaleString()}.`,
+                NotificationType.RESCHEDULE
+            );
+        } catch (error) {
+            console.error('Failed to notify admins of staff reschedule:', error);
         }
 
         return result;
