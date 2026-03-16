@@ -98,6 +98,8 @@ model User {
   userType       UserRole?  @map("user_type")
   mustChangePassword Boolean @default(false) @map("must_change_password")
   invitationExpiresAt DateTime? @map("invitation_expires_at")
+  resetPasswordToken   String?   @map("reset_password_token")
+  resetPasswordExpires DateTime? @map("reset_password_expires")
 
   // Relationships
   tutorProfile       Tutor?

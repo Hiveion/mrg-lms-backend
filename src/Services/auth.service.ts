@@ -1,11 +1,12 @@
-
-import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, ConflictException, NotFoundException } from '@nestjs/common';
 import { UsersService } from '../Services/users.service';
 import { PrismaService } from '../Database/prisma.service';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
+import * as crypto from 'crypto';
 import { RegisterDto, LoginDto } from '../DTOs/auth.dto';
 import { User, UserStatus, UserRole } from '@prisma/client';
+import { MailService } from './mail.service';
 
 @Injectable()
 export class AuthService {
@@ -13,6 +14,7 @@ export class AuthService {
         private usersService: UsersService,
         private jwtService: JwtService,
         private prisma: PrismaService,
+        private mailService: MailService,
     ) { }
 
     async validateUser(email: string, pass: string): Promise<any> {
@@ -251,6 +253,52 @@ export class AuthService {
             mustChangePassword: false,
         });
         return { message: 'Password changed successfully' };
+    }
+
+    async forgotPassword(email: string) {
+        const user = await this.usersService.findOne(email);
+        if (!user) {
+            // To prevent email enumeration, we still return a success message
+            return { message: 'If an account with that email exists, a password reset link has been sent.' };
+        }
+
+        const token = crypto.randomBytes(32).toString('hex');
+        const expires = new Date(Date.now() + 3600000); // 1 hour
+
+        await this.usersService.update(user.id, {
+            resetPasswordToken: token,
+            resetPasswordExpires: expires,
+        } as any);
+
+        await this.mailService.sendPasswordResetEmail(email, token);
+
+        return { message: 'If an account with that email exists, a password reset link has been sent.' };
+    }
+
+    async resetPassword(token: string, newPassword: string) {
+        const user = await this.prisma.user.findFirst({
+            where: {
+                resetPasswordToken: token,
+                resetPasswordExpires: {
+                    gt: new Date(),
+                },
+            },
+        });
+
+        if (!user) {
+            throw new UnauthorizedException('Invalid or expired password reset token');
+        }
+
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+        await this.usersService.update(user.id, {
+            passwordHash: hashedPassword,
+            resetPasswordToken: null,
+            resetPasswordExpires: null,
+            mustChangePassword: false,
+        } as any);
+
+        return { message: 'Password has been reset successfully' };
     }
 }
 
