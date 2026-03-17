@@ -28,8 +28,8 @@ export class AdminController {
     }
 
     @Post('assign-class')
-    async assignClass(@Body() assignClassDto: AssignClassDto) {
-        return this.adminService.assignClass(assignClassDto);
+    async assignClass(@Body() assignClassDto: AssignClassDto, @Request() req: any) {
+        return this.adminService.assignClass(assignClassDto, req.user.id);
     }
 
     @Get('matching-slots')

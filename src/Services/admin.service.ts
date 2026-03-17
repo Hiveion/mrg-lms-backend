@@ -6,6 +6,7 @@ import { UserStatus, UserRole, EnrollmentStatus, SessionStatus, WeekDay } from '
 import { MailService } from './mail.service';
 
 import { JwtService } from '@nestjs/jwt';
+import { GoogleService } from './google.service';
 
 @Injectable()
 export class AdminService {
@@ -13,6 +14,7 @@ export class AdminService {
         private prisma: PrismaService,
         private mailService: MailService,
         private jwtService: JwtService,
+        private googleService: GoogleService,
     ) { }
 
     async inviteUser(inviteUserDto: InviteUserDto) {
@@ -125,7 +127,7 @@ export class AdminService {
         };
     }
 
-    async assignClass(dto: AssignClassDto) {
+    async assignClass(dto: AssignClassDto, adminId: number) {
         const { studentId, tutorId, subjectId, schedule, startDate, numberOfWeeks = 4, grade, createSessions = true } = dto;
 
         // Verify entities exist
@@ -139,7 +141,7 @@ export class AdminService {
 
         const className = dto.name || `${subject.name} with ${student.user.firstName}`;
 
-        return this.prisma.$transaction(async (tx) => {
+        const result = await this.prisma.$transaction(async (tx) => {
             // 1. Create Class
             const newClass = await tx.class.create({
                 data: {
@@ -219,6 +221,28 @@ export class AdminService {
                 }
             });
         });
+
+        // 5. Create Google Calendar events and Meet links
+        if (result && result.sessions.length > 0) {
+            for (const session of result.sessions) {
+                // Ensure session has class data for the service
+                const sessionWithClass = {
+                    ...session,
+                    class: {
+                        name: result.name,
+                        subject: { name: result.subject.name }
+                    }
+                };
+                await this.googleService.createCalendarEvent(
+                    adminId,
+                    sessionWithClass,
+                    student.user.email,
+                    tutor.user.email
+                );
+            }
+        }
+
+        return result;
     }
 
     async getMatchingSlots(tutorId: number, studentId: number) {
