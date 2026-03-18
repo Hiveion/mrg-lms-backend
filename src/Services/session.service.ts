@@ -3,19 +3,24 @@ import { PrismaService } from '../Database/prisma.service';
 import { CreateSessionDto, UpdateSessionDto } from '../DTOs/session.dto';
 import { EnrollmentStatus, SessionStatus, NotificationType } from '@prisma/client';
 import { NotificationService } from './notification.service';
+import { GoogleService } from './google.service';
 
 @Injectable()
 export class SessionService {
-    constructor(private prisma: PrismaService, private readonly notificationService: NotificationService) { }
+    constructor(
+        private prisma: PrismaService,
+        private readonly notificationService: NotificationService,
+        private readonly googleService: GoogleService
+    ) { }
 
-    async create(createSessionDto: CreateSessionDto) {
+    async create(createSessionDto: CreateSessionDto, adminId?: number) {
         const classItem = await this.prisma.class.findUnique({
             where: { id: createSessionDto.classId },
             include: {
-                tutor: { select: { userId: true } },
+                tutor: { include: { user: true } },
                 enrollments: {
                     where: { status: EnrollmentStatus.ACTIVE },
-                    include: { student: { select: { userId: true } } },
+                    include: { student: { include: { user: true } } },
                 },
                 subject: true,
             },
@@ -76,6 +81,33 @@ export class SessionService {
             }
         } catch (error) {
             console.error('Failed to send session creation notifications:', error);
+        }
+
+        // Google Calendar
+        if (adminId) {
+            try {
+                const studentEmails = classItem.enrollments.map(e => e.student.user.email);
+                const tutorEmail = classItem.tutor.user.email;
+
+                // Build a fully-enriched session payload so the GoogleService
+                // can access session.class.name and session.class.subject.name
+                const sessionPayload = {
+                    ...session,
+                    class: {
+                        name: classItem.name,
+                        subject: { name: classItem.subject.name },
+                    },
+                };
+
+                await this.googleService.createCalendarEvent(
+                    adminId,
+                    sessionPayload,
+                    studentEmails,
+                    tutorEmail
+                );
+            } catch (error) {
+                console.error('Failed to create calendar event:', error);
+            }
         }
 
         return session;
@@ -162,15 +194,27 @@ export class SessionService {
         return session;
     }
 
-    async update(id: number, updateSessionDto: UpdateSessionDto) {
+    async update(id: number, updateSessionDto: UpdateSessionDto, adminId?: number) {
         const sessionExists = await this.prisma.session.findUnique({
             where: { id },
+            include: {
+                class: {
+                    include: {
+                        subject: true,
+                        tutor: { include: { user: true } },
+                        enrollments: {
+                            where: { status: EnrollmentStatus.ACTIVE },
+                            include: { student: { include: { user: true } } },
+                        },
+                    },
+                },
+            },
         });
         if (!sessionExists) {
             throw new NotFoundException(`Session with ID ${id} not found`);
         }
 
-        return this.prisma.session.update({
+        const updatedSession = await this.prisma.session.update({
             where: { id },
             data: {
                 ...updateSessionDto,
@@ -180,26 +224,41 @@ export class SessionService {
                 class: {
                     include: {
                         subject: true,
-                        tutor: {
-                            select: {
-                                user: {
-                                    select: {
-                                        firstName: true,
-                                        lastName: true,
-                                        email: true,
-                                        profilePicture: true,
-                                    },
-                                },
-                            },
-                        },
+                        tutor: { include: { user: true } },
                     },
                 },
             },
         });
+
+        if (adminId) {
+            try {
+                const studentEmails = sessionExists.class.enrollments.map(e => e.student.user.email);
+                const tutorEmail = sessionExists.class.tutor.user.email;
+                await this.googleService.updateCalendarEvent(
+                    adminId,
+                    updatedSession,
+                    studentEmails,
+                    tutorEmail
+                );
+            } catch (error) {
+                console.error('Failed to update calendar event:', error);
+            }
+        }
+
+        return updatedSession;
     }
 
-    async remove(id: number) {
+    async remove(id: number, adminId?: number) {
         try {
+            const session = await this.prisma.session.findUnique({
+                where: { id },
+                select: { googleEventId: true },
+            });
+
+            if (adminId && session?.googleEventId) {
+                await this.googleService.deleteCalendarEvent(adminId, session.googleEventId);
+            }
+
             return await this.prisma.session.delete({
                 where: { id },
             });

@@ -281,6 +281,7 @@ model Session {
   rescheduledSessionId Int?          @map("rescheduled_session_id")
   cancellationReason   String?       @map("cancellation_reason")
   link                 String?
+  googleEventId        String?       @map("google_event_id")
   createdAt            DateTime      @default(now()) @map("created_at")
   updatedAt            DateTime      @updatedAt @map("updated_at")
 

@@ -128,18 +128,32 @@ export class AdminService {
     }
 
     async assignClass(dto: AssignClassDto, adminId: number) {
-        const { studentId, tutorId, subjectId, schedule, startDate, numberOfWeeks = 4, grade, createSessions = true } = dto;
+        const { tutorId, subjectId, schedule, startDate, numberOfWeeks = 4, grade, createSessions = true } = dto;
+
+        // Support both studentId and studentIds for backward compatibility
+        const studentIds = dto.studentIds || (dto.studentId ? [dto.studentId] : []);
+        if (studentIds.length === 0) {
+            throw new NotFoundException('At least one student must be specified');
+        }
 
         // Verify entities exist
-        const student = await this.prisma.student.findUnique({ where: { id: studentId }, include: { user: true } });
+        const students = await this.prisma.student.findMany({
+            where: { id: { in: studentIds } },
+            include: { user: true }
+        });
+
+        if (students.length !== studentIds.length) {
+            throw new NotFoundException('One or more students not found');
+        }
+
         const tutor = await this.prisma.tutor.findUnique({ where: { id: tutorId }, include: { user: true } });
         const subject = await this.prisma.subject.findUnique({ where: { id: subjectId } });
 
-        if (!student || !tutor || !subject) {
-            throw new NotFoundException('Student, Tutor, or Subject not found');
+        if (!tutor || !subject) {
+            throw new NotFoundException('Tutor or Subject not found');
         }
 
-        const className = dto.name || `${subject.name} with ${student.user.firstName}`;
+        const className = dto.name || `${subject.name} - ${tutor.user.firstName}`;
 
         const result = await this.prisma.$transaction(async (tx) => {
             // 1. Create Class
@@ -148,13 +162,13 @@ export class AdminService {
                     name: className,
                     subjectId,
                     tutorId,
-                    grade: grade || student.grade,
+                    grade: grade || students[0].grade, // Use first student's grade if not provided
                     isActive: true,
                     isDemo: false,
                     frequency: dto.frequency || schedule.length,
                     maxStudentCount: dto.maxStudents || 20,
                     classFee: dto.baseFee || 0,
-                    currentStudentCount: 1, // First student being enrolled
+                    currentStudentCount: students.length,
                     schedules: {
                         create: schedule.map(slot => ({
                             day: slot.day,
@@ -165,15 +179,15 @@ export class AdminService {
                 }
             });
 
-            // 2. Enroll Student
-            await tx.enrollment.create({
-                data: {
-                    studentId,
+            // 2. Enroll All Students
+            await tx.enrollment.createMany({
+                data: students.map(student => ({
+                    studentId: student.id,
                     classId: newClass.id,
                     status: EnrollmentStatus.ACTIVE,
                     assignedPrice: dto.studentPrice || dto.baseFee || 0,
                     confirmationDate: new Date(),
-                }
+                }))
             });
 
             // 3. Generate Sessions (Optional)
@@ -203,11 +217,13 @@ export class AdminService {
                 }
             }
 
-            // 4. Punch the class slot out of the tutor's and student's availability calendars
+            // 4. Punch the class slot out of the tutor's and students' availability calendars
             for (const slot of schedule) {
                 const classEnd = this.toTimeStr(this.toMinutes(slot.startTime) + slot.duration);
                 await this.subtractFromTutorAvailability(tx, tutorId, slot.day as WeekDay, slot.startTime, classEnd);
-                await this.subtractFromStudentAvailability(tx, studentId, slot.day as WeekDay, slot.startTime, classEnd);
+                for (const student of students) {
+                    await this.subtractFromStudentAvailability(tx, student.id, slot.day as WeekDay, slot.startTime, classEnd);
+                }
             }
 
             return tx.class.findUnique({
@@ -224,8 +240,10 @@ export class AdminService {
 
         // 5. Create Google Calendar events and Meet links
         if (result && result.sessions.length > 0) {
+            const studentEmails = students.map(s => s.user.email);
+            const tutorEmail = tutor.user.email;
+
             for (const session of result.sessions) {
-                // Ensure session has class data for the service
                 const sessionWithClass = {
                     ...session,
                     class: {
@@ -236,8 +254,8 @@ export class AdminService {
                 await this.googleService.createCalendarEvent(
                     adminId,
                     sessionWithClass,
-                    student.user.email,
-                    tutor.user.email
+                    studentEmails,
+                    tutorEmail
                 );
             }
         }
