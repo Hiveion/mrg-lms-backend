@@ -15,34 +15,47 @@ export class GoogleService {
         );
     }
 
-    async createCalendarEvent(adminId: number, session: any, studentEmails: string[], tutorEmail: string) {
+    async createCalendarEvent(adminId: number, session: any, studentEmails: string[], tutorEmail: string, titlePrefix?: string) {
         const admin = await this.prisma.user.findUnique({
             where: { id: adminId },
         });
 
         if (!admin?.googleRefreshToken) {
-            this.logger.warn(`Admin ${adminId} has no Google Refresh Token. Skipping calendar event creation.`);
-            return null;
-        }
+            // Fallback to Main Admin (ID 24/First one found) if current user has no tokens
+            const fallbackAdmin = await this.prisma.user.findFirst({
+                where: { NOT: { googleRefreshToken: null } }
+            });
 
-        this.oauth2Client.setCredentials({
-            refresh_token: admin.googleRefreshToken,
-            access_token: admin.googleAccessToken,
-        });
+            if (!fallbackAdmin?.googleRefreshToken) {
+                this.logger.warn(`No user has linked their Google Calendar. Skipping calendar event creation.`);
+                return null;
+            }
+            this.oauth2Client.setCredentials({
+                refresh_token: fallbackAdmin.googleRefreshToken,
+                access_token: fallbackAdmin.googleAccessToken,
+            });
+        } else {
+            this.oauth2Client.setCredentials({
+                refresh_token: admin.googleRefreshToken,
+                access_token: admin.googleAccessToken,
+            });
+        }
 
         const calendar = google.calendar({ version: 'v3', auth: this.oauth2Client });
 
         const startTime = new Date(session.dateTime);
-        const endTime = new Date(startTime.getTime() + session.duration * 60 * 1000);
+        const endTime = new Date(startTime.getTime() + (session.duration || 60) * 60 * 1000);
 
         const attendees = [
             { email: tutorEmail },
             ...studentEmails.map(email => ({ email })),
         ];
 
+        const summary = `${titlePrefix ? titlePrefix + ': ' : ''}Class: ${session.class.subject.name} - ${session.class.name}`;
+
         const event = {
-            summary: `Class: ${session.class.subject.name} - ${session.class.name}`,
-            description: `Class session for ${session.class.subject.name}.`,
+            summary,
+            description: `Class session for ${session.class.subject.name}. ${titlePrefix ? '(' + titlePrefix + ')' : ''}`,
             start: {
                 dateTime: startTime.toISOString(),
                 timeZone: 'UTC',
@@ -72,6 +85,7 @@ export class GoogleService {
                 calendarId: 'primary',
                 requestBody: event,
                 conferenceDataVersion: 1,
+                sendUpdates: 'all',
             });
 
             const meetLink = response.data.hangoutLink;
@@ -88,6 +102,8 @@ export class GoogleService {
 
             return { meetLink, googleEventId };
         } catch (error) {
+            this.logger.error(`Failed to create Google Calendar event: ${error.message}`);
+            return null;
         }
     }
 
@@ -100,12 +116,22 @@ export class GoogleService {
             where: { id: adminId },
         });
 
-        if (!admin?.googleRefreshToken) return null;
+        if (!admin?.googleRefreshToken) {
+            const fallbackAdmin = await this.prisma.user.findFirst({
+                where: { NOT: { googleRefreshToken: null } }
+            });
+            if (!fallbackAdmin?.googleRefreshToken) return null;
 
-        this.oauth2Client.setCredentials({
-            refresh_token: admin.googleRefreshToken,
-            access_token: admin.googleAccessToken,
-        });
+            this.oauth2Client.setCredentials({
+                refresh_token: fallbackAdmin.googleRefreshToken,
+                access_token: fallbackAdmin.googleAccessToken,
+            });
+        } else {
+            this.oauth2Client.setCredentials({
+                refresh_token: admin.googleRefreshToken,
+                access_token: admin.googleAccessToken,
+            });
+        }
 
         const calendar = google.calendar({ version: 'v3', auth: this.oauth2Client });
 
@@ -121,6 +147,7 @@ export class GoogleService {
             const response = await calendar.events.patch({
                 calendarId: 'primary',
                 eventId: session.googleEventId,
+                sendUpdates: 'all',
                 requestBody: {
                     summary: `Class: ${session.class.subject.name} - ${session.class.name}`,
                     start: { dateTime: startTime.toISOString() },
@@ -130,7 +157,8 @@ export class GoogleService {
             });
 
             const meetLink = response.data.hangoutLink;
-            if (meetLink) {
+            // Optionally update the session link in DB if a session ID is provided
+            if (meetLink && session.id) {
                 await this.prisma.session.update({
                     where: { id: session.id },
                     data: { link: meetLink },
@@ -151,12 +179,22 @@ export class GoogleService {
             where: { id: adminId },
         });
 
-        if (!admin?.googleRefreshToken) return;
+        if (!admin?.googleRefreshToken) {
+            const fallbackAdmin = await this.prisma.user.findFirst({
+                where: { NOT: { googleRefreshToken: null } }
+            });
+            if (!fallbackAdmin?.googleRefreshToken) return;
 
-        this.oauth2Client.setCredentials({
-            refresh_token: admin.googleRefreshToken,
-            access_token: admin.googleAccessToken,
-        });
+            this.oauth2Client.setCredentials({
+                refresh_token: fallbackAdmin.googleRefreshToken,
+                access_token: fallbackAdmin.googleAccessToken,
+            });
+        } else {
+            this.oauth2Client.setCredentials({
+                refresh_token: admin.googleRefreshToken,
+                access_token: admin.googleAccessToken,
+            });
+        }
 
         const calendar = google.calendar({ version: 'v3', auth: this.oauth2Client });
 
@@ -164,6 +202,7 @@ export class GoogleService {
             await calendar.events.delete({
                 calendarId: 'primary',
                 eventId: googleEventId,
+                sendUpdates: 'all',
             });
         } catch (error) {
             this.logger.error(`Failed to delete Google Calendar event: ${error.message}`);
