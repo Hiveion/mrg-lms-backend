@@ -1,10 +1,17 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, ParseIntPipe, UseGuards, Req } from '@nestjs/common';
 import { ClassService } from '../Services/class.service';
 import { CreateClassDto, UpdateClassDto } from '../DTOs/class.dto';
+import { AuthGuard } from '@nestjs/passport';
 
 @Controller('classes')
 export class ClassController {
     constructor(private readonly classService: ClassService) { }
+
+    @Get('my-classes')
+    @UseGuards(AuthGuard('jwt'))
+    findMyClasses(@Req() req: any) {
+        return this.classService.findMyClasses(req.user.id);
+    }
 
     @Post()
     create(@Body() createClassDto: CreateClassDto) {
