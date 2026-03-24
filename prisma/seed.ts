@@ -1,5 +1,5 @@
 
-import { PrismaClient, UserRole, UserStatus, HomeworkType, DeadlineType, QuestionType, SubmissionStatus, SessionStatus, EnrollmentStatus, Subject, Class } from '@prisma/client';
+import { PrismaClient, UserRole, UserStatus, HomeworkType, DeadlineType, QuestionType, SubmissionStatus, SessionStatus, EnrollmentStatus, Subject, Class, DiscussionType } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
@@ -8,6 +8,10 @@ async function main() {
   console.log('Start seeding...');
 
   // Clean up existing data in correct order
+  await prisma.replyLike.deleteMany();
+  await prisma.discussionLike.deleteMany();
+  await prisma.discussionReply.deleteMany();
+  await prisma.discussionThread.deleteMany();
   await prisma.notification.deleteMany();
   await prisma.ratingLike.deleteMany();
   await prisma.rating.deleteMany();
@@ -832,6 +836,95 @@ async function main() {
 
   await prisma.notification.createMany({
     data: notifications,
+  });
+
+  // 12. Discussion Seeding
+  console.log('Seeding discussions...');
+
+  // Thread 1: Calculus Question
+  const thread1 = await prisma.discussionThread.create({
+    data: {
+      classId: classes[0].id,
+      type: DiscussionType.QUESTION,
+      title: 'How to solve simultaneous equations with 3 variables?',
+      body: "I've been struggling with solving systems of equations that have 3 unknowns. The substitution method seems too tedious — is there a faster approach? Any help would be appreciated!",
+      authorId: studentUser.id,
+      resolved: true,
+      tags: ['algebra', 'calculus'],
+      replies: {
+        create: [
+          {
+            authorId: tutorUser.id,
+            content: "Great question! The elimination method is usually faster for 3 variables. You reduce it step-by-step: first eliminate one variable between any two equations, then do the same with another pair.",
+            isAnswer: true,
+          },
+          {
+            authorId: studentUser2.id,
+            content: "I found using matrices (Cramer's Rule) also works well once you get comfortable with determinants!",
+          }
+        ]
+      }
+    },
+    include: { replies: true }
+  });
+
+  // Thread 2: Calculus Announcement
+  const thread2 = await prisma.discussionThread.create({
+    data: {
+      classId: classes[0].id,
+      type: DiscussionType.ANNOUNCEMENT,
+      title: 'Class Test on Quadratic Equations – March 30',
+      body: 'Dear students, we will be having a short test covering Quadratic Equations and Inequalities next Monday.',
+      authorId: tutorUser.id,
+      pinned: true,
+      tags: ['announcement', 'test'],
+      replies: {
+        create: [
+          {
+            authorId: studentUser.id,
+            content: 'Will the test include exponential inequalities?',
+          }
+        ]
+      }
+    }
+  });
+
+  // Thread 3: Physics Discussion
+  const thread3 = await prisma.discussionThread.create({
+    data: {
+      classId: classes[1].id,
+      type: DiscussionType.DISCUSSION,
+      title: "Real-life examples of Newton's Third Law",
+      body: "Can anyone share interesting real-life examples of Newton's Third Law beyond the rocket example? I want to understand it more intuitively.",
+      authorId: studentUser2.id,
+      tags: ['mechanics', 'physics'],
+      replies: {
+        create: [
+          {
+            authorId: studentUser3.id,
+            content: 'Swimming! When you push water backward, it pushes you forward.',
+          }
+        ]
+      }
+    },
+    include: { replies: true }
+  });
+
+  // Add some likes
+  await prisma.discussionLike.createMany({
+    data: [
+      { threadId: thread1.id, userId: studentUser2.id },
+      { threadId: thread1.id, userId: studentUser3.id },
+      { threadId: thread3.id, userId: studentUser.id },
+    ]
+  });
+
+  await prisma.replyLike.createMany({
+    data: [
+      { replyId: thread1.replies[0].id, userId: studentUser.id },
+      { replyId: thread1.replies[0].id, userId: studentUser3.id },
+      { replyId: thread3.replies[0].id, userId: tutorUser.id },
+    ]
   });
 
   console.log('Seeding finished successfully.');
