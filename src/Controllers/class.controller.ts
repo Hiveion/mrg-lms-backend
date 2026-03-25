@@ -10,7 +10,7 @@ export class ClassController {
     @Get('my-classes')
     @UseGuards(AuthGuard('jwt'))
     findMyClasses(@Req() req: any) {
-        return this.classService.findMyClasses(req.user.id);
+        return this.classService.findMyClasses(req.user.id, req.user.userType);
     }
 
     @Post()
