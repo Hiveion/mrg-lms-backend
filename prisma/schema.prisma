@@ -96,6 +96,8 @@ model User {
   updatedAt      DateTime   @updatedAt @map("updated_at")
   status         UserStatus @default(INCOMPLETE)
   userType       UserRole?  @map("user_type")
+  googleAccessToken  String?    @map("google_access_token")
+  googleRefreshToken String?    @map("google_refresh_token")
   mustChangePassword Boolean @default(false) @map("must_change_password")
   invitationExpiresAt DateTime? @map("invitation_expires_at")
   resetPasswordToken   String?   @map("reset_password_token")
@@ -108,6 +110,10 @@ model User {
   coordinatorProfile Coordinator?
   ratingLikes        RatingLike[]
   ratings            Rating[]
+  discussionThreads  DiscussionThread[]
+  discussionReplies  DiscussionReply[]
+  discussionLikes    DiscussionLike[]
+  replyLikes         ReplyLike[]
   notifications      Notification[]
   payments           Payment[]
 
@@ -220,6 +226,7 @@ model Class {
   schedules  ClassSchedule[]
   enrollments Enrollment[]
   homeworks  Homework[]
+  discussionThreads DiscussionThread[]
   invoiceItems InvoiceItem[]
 
   @@map("classes")
@@ -425,6 +432,70 @@ model RescheduleRequest {
   student  Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
   @@map("reschedule_requests")
+}
+
+enum DiscussionType {
+  DISCUSSION
+  QUESTION
+}
+
+model DiscussionThread {
+  id        Int            @id @default(autoincrement()) @map("thread_id")
+  classId   Int            @map("class_id")
+  type      DiscussionType @default(DISCUSSION)
+  title     String
+  body      String         @db.Text
+  authorId  Int            @map("author_id")
+  resolved  Boolean        @default(false)
+  pinned    Boolean        @default(false)
+  tags      String[]
+  createdAt DateTime       @default(now()) @map("created_at")
+  updatedAt DateTime       @updatedAt @map("updated_at")
+
+  class     Class          @relation(fields: [classId], references: [id], onDelete: Cascade)
+  author    User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  replies   DiscussionReply[]
+  likes     DiscussionLike[]
+
+  @@map("discussion_threads")
+}
+
+model DiscussionReply {
+  id        Int      @id @default(autoincrement()) @map("reply_id")
+  threadId  Int      @map("thread_id")
+  authorId  Int      @map("author_id")
+  content   String   @db.Text
+  isAnswer  Boolean  @default(false) @map("is_answer")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  thread    DiscussionThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  author    User             @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  likes     ReplyLike[]
+
+  @@map("discussion_replies")
+}
+
+model DiscussionLike {
+  userId    Int @map("user_id")
+  threadId  Int @map("thread_id")
+
+  user   User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  thread DiscussionThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+
+  @@id([userId, threadId])
+  @@map("discussion_likes")
+}
+
+model ReplyLike {
+  userId  Int @map("user_id")
+  replyId Int @map("reply_id")
+
+  user  User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reply DiscussionReply @relation(fields: [replyId], references: [id], onDelete: Cascade)
+
+  @@id([userId, replyId])
+  @@map("reply_likes")
 }
 
 enum NotificationType {
