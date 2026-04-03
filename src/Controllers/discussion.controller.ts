@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Body, Param, Query, UseGuards, ParseIntPipe, Req } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards, ParseIntPipe, Req } from '@nestjs/common';
 import { DiscussionService } from '../Services/discussion.service';
 import { AuthGuard } from '@nestjs/passport';
 import { CreateThreadDto, CreateReplyDto } from '../DTOs/discussion.dto';
@@ -50,5 +50,15 @@ export class DiscussionController {
     @Patch('replies/:id/mark-answer')
     markReplyAsAnswer(@Req() req: any, @Param('id', ParseIntPipe) id: number) {
         return this.discussionService.markReplyAsAnswer(req.user.id, req.user.userType, id);
+    }
+
+    @Delete(':id')
+    deleteThread(@Req() req: any, @Param('id', ParseIntPipe) id: number) {
+        return this.discussionService.deleteThread(req.user.userType, id);
+    }
+
+    @Delete('replies/:id')
+    deleteReply(@Req() req: any, @Param('id', ParseIntPipe) id: number) {
+        return this.discussionService.deleteReply(req.user.userType, id);
     }
 }

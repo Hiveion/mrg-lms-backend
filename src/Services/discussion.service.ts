@@ -215,4 +215,22 @@ export class DiscussionService {
             })
         ]);
     }
+
+    async deleteThread(userRole: UserRole, id: number) {
+        if (userRole !== UserRole.ADMIN) {
+            throw new ForbiddenException('Only admins can delete discussions');
+        }
+        return this.prisma.discussionThread.delete({
+            where: { id }
+        });
+    }
+
+    async deleteReply(userRole: UserRole, id: number) {
+        if (userRole !== UserRole.ADMIN) {
+            throw new ForbiddenException('Only admins can delete replies');
+        }
+        return this.prisma.discussionReply.delete({
+            where: { id }
+        });
+    }
 }
