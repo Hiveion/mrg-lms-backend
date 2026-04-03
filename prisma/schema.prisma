@@ -545,9 +545,10 @@ model Invoice {
   id        Int           @id @default(autoincrement()) @map("invoice_id")
   studentId Int           @map("student_id")
   month     String        // e.g., "2024-12"
-  subtotal  Float         @default(0.0)
-  discount  Float         @default(0.0)
-  total     Float         @default(0.0)
+  subtotal          Float         @default(0.0)
+  discount          Float         @default(0.0)
+  additionalPayment Float         @default(0.0) @map("additional_payment")
+  total             Float         @default(0.0)
   status    InvoiceStatus @default(DRAFT)
   dueDate   DateTime      @map("due_date")
   paidDate  DateTime?     @map("paid_date")

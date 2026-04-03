@@ -33,6 +33,16 @@ export class UpdateInvoiceDto {
     discount?: number;
 
     @IsOptional()
+    @IsNumber()
+    additionalPayment?: number;
+
+    @IsOptional()
     @IsEnum(InvoiceStatus)
     status?: InvoiceStatus;
+
+    @IsOptional()
+    @IsArray()
+    @ValidateNested({ each: true })
+    @Type(() => InvoiceItemDto)
+    items?: InvoiceItemDto[];
 }
