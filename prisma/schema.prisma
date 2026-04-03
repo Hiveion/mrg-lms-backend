@@ -109,6 +109,7 @@ model User {
   ratingLikes        RatingLike[]
   ratings            Rating[]
   notifications      Notification[]
+  payments           Payment[]
 
   @@map("users")
 }
@@ -143,6 +144,7 @@ model Student {
   homeworkSubmissions HomeworkSubmission[]
   availabilities      StudentAvailability[]
   rescheduleRequests  RescheduleRequest[]
+  invoices            Invoice[]
 
   @@map("students")
 }
@@ -218,6 +220,7 @@ model Class {
   schedules  ClassSchedule[]
   enrollments Enrollment[]
   homeworks  Homework[]
+  invoiceItems InvoiceItem[]
 
   @@map("classes")
 }
@@ -447,4 +450,77 @@ model Notification {
 
   @@map("notifications")
 }
+
+// Payment Enums
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+}
+
+enum PaymentMethod {
+  PAYHERE
+  BANK_TRANSFER
+}
+
+model Invoice {
+  id        Int           @id @default(autoincrement()) @map("invoice_id")
+  studentId Int           @map("student_id")
+  month     String        // e.g., "2024-12"
+  subtotal  Float         @default(0.0)
+  discount  Float         @default(0.0)
+  total     Float         @default(0.0)
+  status    InvoiceStatus @default(DRAFT)
+  dueDate   DateTime      @map("due_date")
+  paidDate  DateTime?     @map("paid_date")
+  createdAt DateTime      @default(now()) @map("created_at")
+  updatedAt DateTime      @updatedAt @map("updated_at")
+
+  student  Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  items    InvoiceItem[]
+  payments Payment[]
+
+  @@map("invoices")
+}
+
+model InvoiceItem {
+  id          Int     @id @default(autoincrement()) @map("item_id")
+  invoiceId   Int     @map("invoice_id")
+  classId     Int     @map("class_id")
+  description String?
+  amount      Float   @default(0.0)
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  class   Class   @relation(fields: [classId], references: [id])
+
+  @@map("invoice_items")
+}
+
+model Payment {
+  id          Int           @id @default(autoincrement()) @map("payment_id")
+  invoiceId   Int?          @map("invoice_id")
+  amount      Float
+  method      PaymentMethod @default(PAYHERE)
+  status      PaymentStatus @default(PENDING)
+  reference   String?
+  proofUrl    String?       @map("proof_url")
+  notes       String?
+  paidById    Int           @map("paid_by_id")
+  processedAt DateTime?     @map("processed_at")
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+
+  invoice Invoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  paidBy  User     @relation(fields: [paidById], references: [id])
+
+  @@map("payments")
+}
+
 
