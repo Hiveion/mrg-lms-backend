@@ -17,7 +17,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../Guards/roles.guard';
 import { Roles } from '../Decorators/roles.decorator';
 import { UserRole, InvoiceStatus } from '@prisma/client';
-import { GenerateInvoicesDto, UpdateInvoiceStatusDto, UpdateInvoiceDto } from '../DTOs/invoice.dto';
+import { GenerateInvoicesDto, UpdateInvoiceStatusDto, UpdateInvoiceDto, CreateInvoiceDto } from '../DTOs/invoice.dto';
 
 @Controller('invoices')
 @UseGuards(AuthGuard('jwt'), RolesGuard)
@@ -28,6 +28,12 @@ export class InvoiceController {
     @Roles(UserRole.ADMIN)
     async generateInvoices(@Body() generateDto: GenerateInvoicesDto) {
         return this.invoiceService.generateInvoices(generateDto.month);
+    }
+
+    @Post()
+    @Roles(UserRole.ADMIN)
+    async createInvoice(@Body() createDto: CreateInvoiceDto) {
+        return this.invoiceService.createInvoice(createDto);
     }
 
     @Get()

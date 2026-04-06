@@ -46,3 +46,27 @@ export class UpdateInvoiceDto {
     @Type(() => InvoiceItemDto)
     items?: InvoiceItemDto[];
 }
+
+export class CreateInvoiceDto {
+    @IsNumber()
+    studentId: number;
+
+    @IsString()
+    month: string; // "YYYY-MM"
+
+    @IsString()
+    dueDate: string; // ISO date string
+
+    @IsOptional()
+    @IsNumber()
+    discount?: number;
+
+    @IsOptional()
+    @IsNumber()
+    additionalPayment?: number;
+
+    @IsArray()
+    @ValidateNested({ each: true })
+    @Type(() => InvoiceItemDto)
+    items: InvoiceItemDto[];
+}

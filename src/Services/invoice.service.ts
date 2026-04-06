@@ -1,7 +1,7 @@
 import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../Database/prisma.service';
 import { InvoiceStatus, EnrollmentStatus } from '@prisma/client';
-import { UpdateInvoiceDto } from '../DTOs/invoice.dto';
+import { UpdateInvoiceDto, CreateInvoiceDto } from '../DTOs/invoice.dto';
 
 @Injectable()
 export class InvoiceService {
@@ -147,6 +147,41 @@ export class InvoiceService {
         }
 
         return invoice;
+    }
+
+    async createInvoice(createDto: CreateInvoiceDto) {
+        const { studentId, month, dueDate, discount, additionalPayment, items } = createDto;
+
+        const subtotal = items.reduce((sum, item) => sum + item.amount, 0);
+        const disc = discount !== undefined ? discount : 0;
+        const addPay = additionalPayment !== undefined ? additionalPayment : 0;
+        const total = Math.max(0, subtotal - disc + addPay);
+
+        return this.prisma.invoice.create({
+            data: {
+                studentId,
+                month,
+                subtotal,
+                discount: disc,
+                additionalPayment: addPay,
+                total,
+                status: InvoiceStatus.DRAFT,
+                dueDate: new Date(dueDate),
+                items: {
+                    create: items.map(item => ({
+                        classId: item.classId,
+                        description: item.description,
+                        amount: item.amount,
+                    })),
+                },
+            },
+            include: {
+                items: true,
+                student: {
+                    include: { user: true }
+                }
+            },
+        });
     }
 
     async updateStatus(id: number, status: InvoiceStatus) {
