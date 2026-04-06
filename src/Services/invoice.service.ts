@@ -101,7 +101,20 @@ export class InvoiceService {
         };
     }
 
+    private async syncOverdueStatus() {
+        await this.prisma.invoice.updateMany({
+            where: {
+                status: InvoiceStatus.SENT,
+                dueDate: { lt: new Date() },
+            },
+            data: {
+                status: InvoiceStatus.OVERDUE,
+            },
+        });
+    }
+
     async findAll(studentId?: number, month?: string, status?: InvoiceStatus) {
+        await this.syncOverdueStatus();
         return this.prisma.invoice.findMany({
             where: {
                 ...(studentId && { studentId }),
@@ -121,6 +134,7 @@ export class InvoiceService {
     }
 
     async findOne(id: number) {
+        await this.syncOverdueStatus();
         const invoice = await this.prisma.invoice.findUnique({
             where: { id },
             include: {
@@ -188,8 +202,14 @@ export class InvoiceService {
         const invoice = await this.prisma.invoice.findUnique({ where: { id } });
         if (!invoice) throw new NotFoundException('Invoice not found');
 
-        const updateData: any = { status };
-        if (status === InvoiceStatus.PAID) {
+        let finalStatus = status;
+        // if status is SENT and due date is passed, mark as OVERDUE
+        if (status === InvoiceStatus.SENT && invoice.dueDate < new Date()) {
+            finalStatus = InvoiceStatus.OVERDUE;
+        }
+
+        const updateData: any = { status: finalStatus };
+        if (finalStatus === InvoiceStatus.PAID) {
             updateData.paidDate = new Date();
         }
 
@@ -262,6 +282,7 @@ export class InvoiceService {
     }
 
     async findParentInvoices(parentId: number) {
+        await this.syncOverdueStatus();
         // Get children
         const parent = await this.prisma.parent.findUnique({
             where: { id: parentId },
