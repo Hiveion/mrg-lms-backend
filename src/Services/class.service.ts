@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../Database/prisma.service';
 import { CreateClassDto, UpdateClassDto } from '../DTOs/class.dto';
+import { UserRole } from '@prisma/client';
 
 @Injectable()
 export class ClassService {
@@ -48,6 +49,42 @@ export class ClassService {
                 sessions: true,
                 schedules: {
                     orderBy: { day: 'asc' },
+                },
+            },
+        });
+    }
+
+    async findMyClasses(userId: number, userRole: string | UserRole) {
+        const roleStr = userRole?.toString().toUpperCase();
+
+        if (roleStr === 'ADMIN' || roleStr === 'COORDINATOR') {
+            return this.prisma.class.findMany({
+                where: { isActive: true },
+                include: {
+                    subject: true,
+                    tutor: {
+                        include: {
+                            user: true,
+                        },
+                    },
+                },
+            });
+        }
+
+        return this.prisma.class.findMany({
+            where: {
+                isActive: true,
+                OR: [
+                    { tutor: { userId: userId } },
+                    { enrollments: { some: { student: { userId: userId } } } },
+                ],
+            },
+            include: {
+                subject: true,
+                tutor: {
+                    include: {
+                        user: true,
+                    },
                 },
             },
         });

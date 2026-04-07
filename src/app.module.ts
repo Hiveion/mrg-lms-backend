@@ -16,10 +16,11 @@ import { MailModule } from './Modules/mail.module';
 import { SchedulingModule } from './Modules/scheduling.module';
 import { RescheduleModule } from './Modules/reschedule.module';
 import { NotificationModule } from './Modules/notification.module';
+import { DiscussionModule } from './Modules/discussion.module';
 import { RecordingModule } from './Modules/recording.module';
 
 @Module({
-  imports: [DatabaseModule, AuthModule, UsersModule, SubjectModule, ClassModule, SessionModule, EnrollmentModule, HomeworkModule, RatingModule, AdminModule, MailModule, SchedulingModule, RescheduleModule, NotificationModule, RecordingModule],
+  imports: [DatabaseModule, AuthModule, UsersModule, SubjectModule, ClassModule, SessionModule, EnrollmentModule, HomeworkModule, RatingModule, AdminModule, MailModule, SchedulingModule, RescheduleModule, NotificationModule, DiscussionModule, RecordingModule],
   controllers: [AppController],
   providers: [AppService],
 })
