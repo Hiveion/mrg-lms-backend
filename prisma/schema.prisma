@@ -212,12 +212,13 @@ model Class {
   createdAt           DateTime @default(now()) @map("created_at")
   updatedAt           DateTime @updatedAt @map("updated_at")
 
-  subject    Subject      @relation(fields: [subjectId], references: [id])
-  tutor      Tutor        @relation(fields: [tutorId], references: [id])
-  sessions   Session[]
-  schedules  ClassSchedule[]
+  subject     Subject           @relation(fields: [subjectId], references: [id])
+  tutor       Tutor             @relation(fields: [tutorId], references: [id])
+  sessions    Session[]
+  schedules   ClassSchedule[]
   enrollments Enrollment[]
-  homeworks  Homework[]
+  homeworks   Homework[]
+  recordings  Recording[]
 
   @@map("classes")
 }
@@ -285,9 +286,37 @@ model Session {
   rescheduledSession   Session?            @relation("RescheduledSession", fields: [rescheduledSessionId], references: [id])
   nextSessions         Session[]           @relation("RescheduledSession")
   rescheduleRequests   RescheduleRequest[]
+  recording            Recording?
 
   @@map("sessions")
 }
+
+enum RecordingStatus {
+  AVAILABLE
+  EXPIRING_SOON
+  EXPIRED
+}
+
+model Recording {
+  id            Int             @id @default(autoincrement()) @map("recording_id")
+  sessionId     Int             @unique @map("session_id")
+  classId       Int             @map("class_id")
+  videoUrl      String          @map("video_url")
+  duration      String?
+  fileSize      String?         @map("file_size")
+  viewCount     Int             @default(0) @map("view_count")
+  retentionDays Int             @default(14) @map("retention_days")
+  status        RecordingStatus @default(AVAILABLE)
+  expiresAt     DateTime        @map("expires_at")
+  createdAt     DateTime        @default(now()) @map("created_at")
+  updatedAt     DateTime        @updatedAt @map("updated_at")
+
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  class   Class   @relation(fields: [classId], references: [id], onDelete: Cascade)
+
+  @@map("recordings")
+}
+
 
 model Enrollment {
   id               Int              @id @default(autoincrement()) @map("enrollment_id")
@@ -447,4 +476,3 @@ model Notification {
 
   @@map("notifications")
 }
-
