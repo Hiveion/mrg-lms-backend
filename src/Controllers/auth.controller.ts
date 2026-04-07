@@ -1,11 +1,12 @@
 
-
 import { Controller, Post, Body, UseGuards, Request, Get, Put, HttpCode, HttpStatus, UnauthorizedException, Res } from '@nestjs/common';
-import type { Response } from 'express';
+import { Response } from 'express';
 import { AuthService } from '../Services/auth.service';
 import { RegisterDto, LoginDto, ChangePasswordDto, ForgotPasswordDto, ResetPasswordDto } from '../DTOs/auth.dto';
 import { UpdateProfileDto } from '../DTOs/user.dto';
 import { AuthGuard } from '@nestjs/passport';
+import { GoogleAuthGuard } from '../Guards/google-auth.guard';
+import { UserStatus } from '@prisma/client';
 
 @Controller('auth')
 export class AuthController {
@@ -34,11 +35,11 @@ export class AuthController {
     }
 
     @Get('google')
-    @UseGuards(AuthGuard('google'))
+    @UseGuards(GoogleAuthGuard)
     async googleAuth(@Request() req: any) { }
 
     @Get('google/callback')
-    @UseGuards(AuthGuard('google'))
+    @UseGuards(GoogleAuthGuard)
     async googleAuthRedirect(@Request() req: any, @Res() res: Response) {
         try {
             const result = await this.authService.googleLogin(req);
