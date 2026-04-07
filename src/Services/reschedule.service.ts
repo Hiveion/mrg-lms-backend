@@ -8,12 +8,14 @@ import { PrismaService } from '../Database/prisma.service';
 import { CreateRescheduleRequestDto, RespondRescheduleRequestDto } from '../DTOs/reschedule.dto';
 import { NotificationService } from './notification.service';
 import { NotificationType, EnrollmentStatus } from '@prisma/client';
+import { GoogleService } from './google.service';
 
 @Injectable()
 export class RescheduleService {
     constructor(
         private readonly prisma: PrismaService,
         private readonly notificationService: NotificationService,
+        private readonly googleService: GoogleService,
     ) { }
 
     /* ─────────────────────────────────────────────────────────────────────
@@ -179,11 +181,59 @@ export class RescheduleService {
                 where: { id: requestId },
                 data: { status: 'ACCEPTED', responseReason: dto.responseReason },
                 include: {
-                    session: { include: { class: { include: { subject: true } } } },
+                    session: {
+                        include: {
+                            class: {
+                                include: {
+                                    subject: true,
+                                    tutor: { include: { user: true } },
+                                    enrollments: {
+                                        where: { status: EnrollmentStatus.ACTIVE },
+                                        include: { student: { include: { user: true } } }
+                                    }
+                                }
+                            }
+                        }
+                    },
                     student: { include: { user: { select: { firstName: true, lastName: true } } } },
                 },
             });
         });
+
+        // GOOGLE CALENDAR: Create new with "RESCHEDULED" title (old event is NOT deleted)
+        try {
+            const adminId = userId;
+            const newSessionDetails = await this.prisma.session.findUnique({
+                where: { id: result.session.rescheduledSessionId! },
+                include: {
+                    class: {
+                        include: {
+                            subject: true,
+                            tutor: { include: { user: true } },
+                            enrollments: {
+                                where: { status: EnrollmentStatus.ACTIVE },
+                                include: { student: { include: { user: true } } }
+                            }
+                        }
+                    }
+                }
+            });
+
+            if (newSessionDetails) {
+                const studentEmails = newSessionDetails.class.enrollments.map(e => e.student.user.email);
+                const tutorEmail = newSessionDetails.class.tutor.user.email;
+
+                await this.googleService.createCalendarEvent(
+                    adminId,
+                    newSessionDetails,
+                    studentEmails,
+                    tutorEmail,
+                    'RESCHEDULED'
+                );
+            }
+        } catch (error) {
+            console.error('Failed to handle Google Calendar for reschedule accept:', error);
+        }
 
         // NOTIFICATION: Notify Student
         try {
@@ -195,6 +245,17 @@ export class RescheduleService {
             );
         } catch (error) {
             console.error('Failed to notify student of accepted reschedule:', error);
+        }
+
+        // NOTIFICATION: Notify Admins
+        try {
+            await this.notificationService.notifyAdmins(
+                'Class Rescheduled',
+                `A session for ${request.session.class.subject.name} - ${request.session.class.name} was rescheduled to ${new Date(request.proposedDateTime).toLocaleString()}.`,
+                NotificationType.RESCHEDULE
+            );
+        } catch (error) {
+            console.error('Failed to notify admins of accepted reschedule:', error);
         }
 
         return result;
@@ -325,8 +386,49 @@ export class RescheduleService {
                     status: 'RESCHEDULED',
                     rescheduledSessionId: newSession.id,
                 },
+                include: {
+                    class: {
+                        include: {
+                            subject: true,
+                            tutor: { include: { user: true } },
+                            enrollments: {
+                                where: { status: EnrollmentStatus.ACTIVE },
+                                include: { student: { include: { user: true } } }
+                            }
+                        }
+                    }
+                }
             });
         });
+
+        // GOOGLE CALENDAR: Create new with "RESCHEDULED" title (old event is NOT deleted)
+        try {
+            const adminId = userId;
+            const studentEmails = result.class.enrollments.map(e => e.student.user.email);
+            const tutorEmail = result.class.tutor.user.email;
+
+            // Fetch the newly created session
+            const newSession = await this.prisma.session.findUnique({
+                where: { id: result.rescheduledSessionId! },
+                include: {
+                    class: {
+                        include: { subject: true }
+                    }
+                }
+            });
+
+            if (newSession) {
+                await this.googleService.createCalendarEvent(
+                    adminId,
+                    newSession,
+                    studentEmails,
+                    tutorEmail,
+                    'RESCHEDULED'
+                );
+            }
+        } catch (error) {
+            console.error('Failed to handle Google Calendar for staff reschedule:', error);
+        }
 
         // NOTIFICATION: Notify Students
         try {
@@ -341,6 +443,17 @@ export class RescheduleService {
             }
         } catch (error) {
             console.error('Failed to notify students of staff reschedule:', error);
+        }
+
+        // NOTIFICATION: Notify Admins
+        try {
+            await this.notificationService.notifyAdmins(
+                'Class Rescheduled',
+                `A session for ${session.class.subject.name} - ${session.class.name} was rescheduled to ${new Date(dto.proposedDateTime).toLocaleString()}.`,
+                NotificationType.RESCHEDULE
+            );
+        } catch (error) {
+            console.error('Failed to notify admins of staff reschedule:', error);
         }
 
         return result;

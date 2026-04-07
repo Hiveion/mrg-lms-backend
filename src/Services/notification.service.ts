@@ -1,10 +1,26 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../Database/prisma.service';
-import { NotificationType } from '@prisma/client';
+import { NotificationType, UserRole } from '@prisma/client';
 
 @Injectable()
 export class NotificationService {
     constructor(private readonly prisma: PrismaService) { }
+
+    async notifyAdmins(title: string, message: string, type: NotificationType) {
+        const admins = await this.prisma.user.findMany({
+            where: {
+                userType: {
+                    in: [UserRole.ADMIN, UserRole.COORDINATOR]
+                }
+            },
+            select: { id: true }
+        });
+
+        const adminIds = admins.map(admin => admin.id);
+        if (adminIds.length > 0) {
+            return this.createManyNotifications(adminIds, title, message, type);
+        }
+    }
 
     async createNotification(userId: number, title: string, message: string, type: NotificationType) {
         return this.prisma.notification.create({
@@ -28,6 +44,22 @@ export class NotificationService {
         return this.prisma.notification.createMany({
             data,
         });
+    }
+
+    async notifyAdmins(title: string, message: string, type: NotificationType) {
+        const admins = await this.prisma.user.findMany({
+            where: {
+                userType: {
+                    in: [UserRole.ADMIN, UserRole.COORDINATOR]
+                }
+            },
+            select: { id: true }
+        });
+
+        const adminIds = admins.map(admin => admin.id);
+        if (adminIds.length > 0) {
+            return this.createManyNotifications(adminIds, title, message, type);
+        }
     }
 
     async getNotifications(userId: number) {

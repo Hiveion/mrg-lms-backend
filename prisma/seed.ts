@@ -1,5 +1,5 @@
 
-import { PrismaClient, UserRole, UserStatus, HomeworkType, DeadlineType, QuestionType, SubmissionStatus, SessionStatus, EnrollmentStatus, Subject, Class, DiscussionType } from '@prisma/client';
+import { PrismaClient, UserRole, UserStatus, HomeworkType, DeadlineType, QuestionType, SubmissionStatus, SessionStatus, EnrollmentStatus, Subject, Class, RecordingStatus, DiscussionType  } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
@@ -13,6 +13,7 @@ async function main() {
   await prisma.discussionReply.deleteMany();
   await prisma.discussionThread.deleteMany();
   await prisma.notification.deleteMany();
+  await prisma.recording.deleteMany();
   await prisma.ratingLike.deleteMany();
   await prisma.rating.deleteMany();
   await prisma.submissionAnswer.deleteMany();
@@ -238,8 +239,8 @@ async function main() {
   console.log('Class schedules seeded.');
 
 
-  // 5. Enroll Alice in first 5 classes, Bob in 3, Carol in 3
-  const aliceEnrolled = classes.slice(0, 5);
+  // 5. Enroll Alice in all classes
+  const aliceEnrolled = classes.slice(0, 10);
   for (const c of aliceEnrolled) {
     await prisma.enrollment.create({
       data: {
@@ -295,9 +296,9 @@ async function main() {
     if (i === 0) {
       status = SessionStatus.ONGOING;
       dateTime.setHours(today.getHours() - 1);
-    } else if (i === 1) {
+    } else if (i === 1 || i === 5 || i === 8) {
       status = SessionStatus.COMPLETED;
-      dateTime.setDate(today.getDate() - 1);
+      dateTime.setDate(today.getDate() - 1 - (i % 3));
     } else if (i === 2) {
       status = SessionStatus.CANCELLED;
       reason = 'Tutor unavailable due to medical emergency.';
@@ -342,7 +343,39 @@ async function main() {
         data: { rescheduledSessionId: session2.id },
       });
     }
+
+    // Create a recording for completed sessions
+    if (status === SessionStatus.COMPLETED) {
+      // Create some variations for testing statuses
+      let recordingStatus = RecordingStatus.AVAILABLE;
+      let expiresAt = new Date(today);
+
+      if (i === 1) { // Second class (Quantum Mechanics)
+        recordingStatus = RecordingStatus.AVAILABLE;
+        expiresAt.setDate(today.getDate() + 10);
+      } else if (i === 5) { // Sixth class (Climate Change)
+        recordingStatus = RecordingStatus.EXPIRING_SOON;
+        expiresAt.setDate(today.getDate() + 2);
+      } else if (i === 8) { // Ninth class (International Trade)
+        recordingStatus = RecordingStatus.EXPIRED;
+        expiresAt.setDate(today.getDate() - 2);
+      }
+
+      await prisma.recording.create({
+        data: {
+          sessionId: session1.id,
+          classId: classItem.id,
+          videoUrl: `https://recorded-session-${session1.id}`,
+          duration: '1h 15m',
+          fileSize: '520 MB',
+          status: recordingStatus,
+          expiresAt: expiresAt,
+          viewCount: Math.floor(Math.random() * 50),
+        },
+      });
+    }
   }
+  console.log('Recordings seeded.');
 
   // 7. Homeworks for each class
   const allHomeworks: any[] = [];
