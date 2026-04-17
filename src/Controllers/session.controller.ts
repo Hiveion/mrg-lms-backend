@@ -19,9 +19,10 @@ export class SessionController {
         return this.sessionService.findByTutorUserId(req.user.id);
     }
 
+    @UseGuards(AuthGuard('jwt'))
     @Post()
-    create(@Body() createSessionDto: CreateSessionDto) {
-        return this.sessionService.create(createSessionDto);
+    create(@Request() req: any, @Body() createSessionDto: CreateSessionDto) {
+        return this.sessionService.create(createSessionDto, req.user.id);
     }
 
     @UseGuards(AuthGuard('jwt'))
@@ -35,13 +36,15 @@ export class SessionController {
         return this.sessionService.findOne(id);
     }
 
+    @UseGuards(AuthGuard('jwt'))
     @Patch(':id')
-    update(@Param('id', ParseIntPipe) id: number, @Body() updateSessionDto: UpdateSessionDto) {
-        return this.sessionService.update(id, updateSessionDto);
+    update(@Request() req: any, @Param('id', ParseIntPipe) id: number, @Body() updateSessionDto: UpdateSessionDto) {
+        return this.sessionService.update(id, updateSessionDto, req.user.id);
     }
 
+    @UseGuards(AuthGuard('jwt'))
     @Delete(':id')
-    remove(@Param('id', ParseIntPipe) id: number) {
-        return this.sessionService.remove(id);
+    remove(@Request() req: any, @Param('id', ParseIntPipe) id: number) {
+        return this.sessionService.remove(id, req.user.id);
     }
 }

@@ -1,5 +1,5 @@
 
-import { PrismaClient, UserRole, UserStatus, HomeworkType, DeadlineType, QuestionType, SubmissionStatus, SessionStatus, EnrollmentStatus, Subject, Class } from '@prisma/client';
+import { PrismaClient, UserRole, UserStatus, HomeworkType, DeadlineType, QuestionType, SubmissionStatus, SessionStatus, EnrollmentStatus, Subject, Class, RecordingStatus, DiscussionType  } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
@@ -8,7 +8,12 @@ async function main() {
   console.log('Start seeding...');
 
   // Clean up existing data in correct order
+  await prisma.replyLike.deleteMany();
+  await prisma.discussionLike.deleteMany();
+  await prisma.discussionReply.deleteMany();
+  await prisma.discussionThread.deleteMany();
   await prisma.notification.deleteMany();
+  await prisma.recording.deleteMany();
   await prisma.ratingLike.deleteMany();
   await prisma.rating.deleteMany();
   await prisma.submissionAnswer.deleteMany();
@@ -234,8 +239,8 @@ async function main() {
   console.log('Class schedules seeded.');
 
 
-  // 5. Enroll Alice in first 5 classes, Bob in 3, Carol in 3
-  const aliceEnrolled = classes.slice(0, 5);
+  // 5. Enroll Alice in all classes
+  const aliceEnrolled = classes.slice(0, 10);
   for (const c of aliceEnrolled) {
     await prisma.enrollment.create({
       data: {
@@ -291,9 +296,9 @@ async function main() {
     if (i === 0) {
       status = SessionStatus.ONGOING;
       dateTime.setHours(today.getHours() - 1);
-    } else if (i === 1) {
+    } else if (i === 1 || i === 5 || i === 8) {
       status = SessionStatus.COMPLETED;
-      dateTime.setDate(today.getDate() - 1);
+      dateTime.setDate(today.getDate() - 1 - (i % 3));
     } else if (i === 2) {
       status = SessionStatus.CANCELLED;
       reason = 'Tutor unavailable due to medical emergency.';
@@ -338,7 +343,39 @@ async function main() {
         data: { rescheduledSessionId: session2.id },
       });
     }
+
+    // Create a recording for completed sessions
+    if (status === SessionStatus.COMPLETED) {
+      // Create some variations for testing statuses
+      let recordingStatus = RecordingStatus.AVAILABLE;
+      let expiresAt = new Date(today);
+
+      if (i === 1) { // Second class (Quantum Mechanics)
+        recordingStatus = RecordingStatus.AVAILABLE;
+        expiresAt.setDate(today.getDate() + 10);
+      } else if (i === 5) { // Sixth class (Climate Change)
+        recordingStatus = RecordingStatus.EXPIRING_SOON;
+        expiresAt.setDate(today.getDate() + 2);
+      } else if (i === 8) { // Ninth class (International Trade)
+        recordingStatus = RecordingStatus.EXPIRED;
+        expiresAt.setDate(today.getDate() - 2);
+      }
+
+      await prisma.recording.create({
+        data: {
+          sessionId: session1.id,
+          classId: classItem.id,
+          videoUrl: `https://recorded-session-${session1.id}`,
+          duration: '1h 15m',
+          fileSize: '520 MB',
+          status: recordingStatus,
+          expiresAt: expiresAt,
+          viewCount: Math.floor(Math.random() * 50),
+        },
+      });
+    }
   }
+  console.log('Recordings seeded.');
 
   // 7. Homeworks for each class
   const allHomeworks: any[] = [];
@@ -832,6 +869,95 @@ async function main() {
 
   await prisma.notification.createMany({
     data: notifications,
+  });
+
+  // 12. Discussion Seeding
+  console.log('Seeding discussions...');
+
+  // Thread 1: Calculus Question
+  const thread1 = await prisma.discussionThread.create({
+    data: {
+      classId: classes[0].id,
+      type: DiscussionType.QUESTION,
+      title: 'How to solve simultaneous equations with 3 variables?',
+      body: "I've been struggling with solving systems of equations that have 3 unknowns. The substitution method seems too tedious — is there a faster approach? Any help would be appreciated!",
+      authorId: studentUser.id,
+      resolved: true,
+      tags: ['algebra', 'calculus'],
+      replies: {
+        create: [
+          {
+            authorId: tutorUser.id,
+            content: "Great question! The elimination method is usually faster for 3 variables. You reduce it step-by-step: first eliminate one variable between any two equations, then do the same with another pair.",
+            isAnswer: true,
+          },
+          {
+            authorId: studentUser2.id,
+            content: "I found using matrices (Cramer's Rule) also works well once you get comfortable with determinants!",
+          }
+        ]
+      }
+    },
+    include: { replies: true }
+  });
+
+  // Thread 2: Calculus Announcement
+  const thread2 = await prisma.discussionThread.create({
+    data: {
+      classId: classes[0].id,
+      type: DiscussionType.ANNOUNCEMENT,
+      title: 'Class Test on Quadratic Equations – March 30',
+      body: 'Dear students, we will be having a short test covering Quadratic Equations and Inequalities next Monday.',
+      authorId: tutorUser.id,
+      pinned: true,
+      tags: ['announcement', 'test'],
+      replies: {
+        create: [
+          {
+            authorId: studentUser.id,
+            content: 'Will the test include exponential inequalities?',
+          }
+        ]
+      }
+    }
+  });
+
+  // Thread 3: Physics Discussion
+  const thread3 = await prisma.discussionThread.create({
+    data: {
+      classId: classes[1].id,
+      type: DiscussionType.DISCUSSION,
+      title: "Real-life examples of Newton's Third Law",
+      body: "Can anyone share interesting real-life examples of Newton's Third Law beyond the rocket example? I want to understand it more intuitively.",
+      authorId: studentUser2.id,
+      tags: ['mechanics', 'physics'],
+      replies: {
+        create: [
+          {
+            authorId: studentUser3.id,
+            content: 'Swimming! When you push water backward, it pushes you forward.',
+          }
+        ]
+      }
+    },
+    include: { replies: true }
+  });
+
+  // Add some likes
+  await prisma.discussionLike.createMany({
+    data: [
+      { threadId: thread1.id, userId: studentUser2.id },
+      { threadId: thread1.id, userId: studentUser3.id },
+      { threadId: thread3.id, userId: studentUser.id },
+    ]
+  });
+
+  await prisma.replyLike.createMany({
+    data: [
+      { replyId: thread1.replies[0].id, userId: studentUser.id },
+      { replyId: thread1.replies[0].id, userId: studentUser3.id },
+      { replyId: thread3.replies[0].id, userId: tutorUser.id },
+    ]
   });
 
   console.log('Seeding finished successfully.');

@@ -51,8 +51,13 @@ export class ClassScheduleDto {
 
 export class AssignClassDto {
     @IsInt()
-    @IsNotEmpty()
-    studentId: number;
+    @IsOptional()
+    studentId?: number; // Kept for backward compatibility
+
+    @IsArray()
+    @IsInt({ each: true })
+    @IsOptional()
+    studentIds?: number[];
 
     @IsInt()
     @IsNotEmpty()

@@ -162,16 +162,25 @@ export class AuthService {
                 passwordHash: null,
                 userType: null,
                 status: UserStatus.INCOMPLETE,
+                googleAccessToken: req.user.accessToken,
+                googleRefreshToken: req.user.refreshToken,
+                googleTokenExpiry: new Date(Date.now() + 3500 * 1000), // Approx 1 hour
             });
         } else {
             if (user.status === UserStatus.INACTIVE) {
                 throw new UnauthorizedException('Your account has been deactivated. Please contact support.');
             }
-            // Update googleId and profilePicture if not present
-            if (!user.googleId || !user.profilePicture) {
-                // We need an update method in usersService, but for now we can rely on user already existing
-                // Ideally we should update the existing user record with google info
-            }
+            // Update googleId, profilePicture and tokens
+            await this.prisma.user.update({
+                where: { id: user.id },
+                data: {
+                    googleId: user.googleId || googleId,
+                    profilePicture: user.profilePicture || picture,
+                    googleAccessToken: req.user.accessToken,
+                    googleRefreshToken: req.user.refreshToken || user.googleRefreshToken, // Keep old if not provided
+                    googleTokenExpiry: new Date(Date.now() + 3500 * 1000),
+                },
+            });
         }
 
         const token = await this.login(user);
