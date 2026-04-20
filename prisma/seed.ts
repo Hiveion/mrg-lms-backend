@@ -347,7 +347,7 @@ async function main() {
     // Create a recording for completed sessions
     if (status === SessionStatus.COMPLETED) {
       // Create some variations for testing statuses
-      let recordingStatus = RecordingStatus.AVAILABLE;
+      let recordingStatus: RecordingStatus = RecordingStatus.AVAILABLE;
       let expiresAt = new Date(today);
 
       if (i === 1) { // Second class (Quantum Mechanics)

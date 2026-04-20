@@ -46,22 +46,6 @@ export class NotificationService {
         });
     }
 
-    async notifyAdmins(title: string, message: string, type: NotificationType) {
-        const admins = await this.prisma.user.findMany({
-            where: {
-                userType: {
-                    in: [UserRole.ADMIN, UserRole.COORDINATOR]
-                }
-            },
-            select: { id: true }
-        });
-
-        const adminIds = admins.map(admin => admin.id);
-        if (adminIds.length > 0) {
-            return this.createManyNotifications(adminIds, title, message, type);
-        }
-    }
-
     async getNotifications(userId: number) {
         return this.prisma.notification.findMany({
             where: { userId },
