@@ -1,7 +1,7 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../Database/prisma.service';
 import { CreateSessionDto, UpdateSessionDto } from '../DTOs/session.dto';
-import { EnrollmentStatus, SessionStatus, NotificationType } from '@prisma/client';
+import { EnrollmentStatus, SessionStatus, NotificationType, UserRole } from '@prisma/client';
 import { NotificationService } from './notification.service';
 import { GoogleService } from './google.service';
 
@@ -13,7 +13,15 @@ export class SessionService {
         private readonly googleService: GoogleService
     ) { }
 
-    async create(createSessionDto: CreateSessionDto, adminId?: number) {
+    async create(createSessionDto: CreateSessionDto, userId: number) {
+        const user = await this.prisma.user.findUnique({
+            where: { id: userId },
+        });
+
+        if (!user) {
+            throw new NotFoundException(`User with ID ${userId} not found`);
+        }
+
         const classItem = await this.prisma.class.findUnique({
             where: { id: createSessionDto.classId },
             include: {
@@ -27,6 +35,11 @@ export class SessionService {
         });
         if (!classItem) {
             throw new NotFoundException(`Class with ID ${createSessionDto.classId} not found`);
+        }
+
+        // Access control: Only Admin, Coordinator, or the assigned Tutor can schedule
+        if (user.userType === UserRole.TUTOR && classItem.tutor.userId !== userId) {
+            throw new BadRequestException('Tutors can only schedule sessions for their own classes');
         }
 
         const session = await this.prisma.session.create({
@@ -61,13 +74,15 @@ export class SessionService {
             const title = `New Session Scheduled`;
             const message = `A new session for ${classItem.subject.name} - ${classItem.name} has been scheduled for ${dateTimeStr}.`;
 
-            // Notify tutor
-            await this.notificationService.createNotification(
-                classItem.tutor.userId,
-                title,
-                message,
-                NotificationType.CLASS
-            );
+            // Notify tutor (if scheduled by admin/coordinator)
+            if (classItem.tutor.userId !== userId) {
+                await this.notificationService.createNotification(
+                    classItem.tutor.userId,
+                    title,
+                    message,
+                    NotificationType.CLASS
+                );
+            }
 
             // Notify students
             const studentUserIds = classItem.enrollments.map(e => e.student.userId);
@@ -84,7 +99,9 @@ export class SessionService {
         }
 
         // Google Calendar
-        if (adminId) {
+        // Only if scheduled by Admin or Coordinator (who have google tokens set up usually) or if we want to support tutor's calendar too.
+        // For now, keeping the adminId check logic if it refers to the person who has the calendar linked.
+        if (user.userType === UserRole.ADMIN || user.userType === UserRole.COORDINATOR) {
             try {
                 const studentEmails = classItem.enrollments.map(e => e.student.user.email);
                 const tutorEmail = classItem.tutor.user.email;
@@ -100,7 +117,7 @@ export class SessionService {
                 };
 
                 await this.googleService.createCalendarEvent(
-                    adminId,
+                    userId,
                     sessionPayload,
                     studentEmails,
                     tutorEmail
