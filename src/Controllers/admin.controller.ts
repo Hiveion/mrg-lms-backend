@@ -49,4 +49,15 @@ export class AdminController {
     async rejectUser(@Param('id', ParseIntPipe) id: number, @Body('reason') reason?: string) {
         return this.adminService.rejectUser(id, reason);
     }
+
+    @Post('announcement')
+    async sendAnnouncement(
+        @Body('title') title: string,
+        @Body('message') message: string,
+    ) {
+        if (!title || !message) {
+            throw new (require("@nestjs/common").BadRequestException)('Title and message are required');
+        }
+        return this.adminService.sendAnnouncementToAllUsers(title, message);
+    }
 }

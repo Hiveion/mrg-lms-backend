@@ -1,5 +1,5 @@
 
-import { PrismaClient, UserRole, UserStatus, HomeworkType, DeadlineType, QuestionType, SubmissionStatus, SessionStatus, EnrollmentStatus, Subject, Class, RecordingStatus, DiscussionType  } from '@prisma/client';
+import { PrismaClient, UserRole, UserStatus, HomeworkType, DeadlineType, QuestionType, SubmissionStatus, SessionStatus, EnrollmentStatus, Subject, Class, RecordingStatus, DiscussionType, NotificationType } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
@@ -959,6 +959,34 @@ async function main() {
       { replyId: thread3.replies[0].id, userId: tutorUser.id },
     ]
   });
+
+  const allUsers = await prisma.user.findMany();
+  
+  console.log('Seeding Announcements...');
+  const announcements = [
+    {
+      title: 'Free Advanced Math Demo Class - Open to All!',
+      message: 'Join us for a complimentary, open-to-all demo class exploring Advanced Mathematics and Calculus fundamentals. Whether you are a beginner looking to get a head start or a seasoned student aiming to refresh your core concepts, this interactive session is structured to provide an engaging learning experience. The class will cover complex theoretical problems broken down into easy-to-understand logical steps. Make sure to log into your dashboard this coming Saturday at 10:00 AM EST and click the "Join Demo" button to participate. No prior enrollment is required, and there are completely no fees associated with this live event. We encourage everyone to join, ask questions in real-time, and get a taste of what our premium courses offer!'
+    },
+    {
+      title: 'Upcoming National Holiday Schedule Adjustments',
+      message: 'Please take note that all regular classes scheduled for the upcoming National Holiday week (starting from the 15th to the 22nd of this month) will be temporarily suspended, and no attendance will be taken during this time. We believe in providing our students and tutors the time they need to rest, recharge, and celebrate with their families. All assignment deadlines originally falling within this period have been generously extended by an additional 7 days to accommodate for the break. You can view your updated personal schedule and new submission deadlines directly on your student dashboard. Classes will resume their regular timings on the 23rd. We wish you an enjoyable holiday season and look forward to seeing you back in the classroom fully refreshed!'
+    },
+    {
+      title: 'New Coding Bootcamp Sprint Announced',
+      message: 'We are incredibly excited to announce our upcoming Intensive Coding Bootcamp Sprint! Designed to take you from fundamentals to full-stack development, this new program covers the latest industry-standard technologies including Next.js, React, Node.js, and Prisma. Registration opens on Monday, and spaces are strictly limited to ensure a high tutor-to-student ratio and personalized 1-on-1 mentorship. Every participant will also receive exclusively engineered course materials and gain lifetime access to the recorded sessions. If you have ever wanted to fast-track your software engineering journey and build an impressive portfolio of real-world applications, this is the perfect opportunity. Keep an eye out on the enrollment page and secure your spot early!'
+    }
+  ];
+
+  for (const announcement of announcements) {
+    const notificationData = allUsers.map((u) => ({
+      userId: u.id,
+      title: announcement.title,
+      message: announcement.message,
+      type: NotificationType.ANNOUNCEMENT,
+    }));
+    await prisma.notification.createMany({ data: notificationData });
+  }
 
   console.log('Seeding finished successfully.');
 }

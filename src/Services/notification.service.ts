@@ -53,6 +53,15 @@ export class NotificationService {
         });
     }
 
+    async getNotification(notificationId: number, userId: number) {
+        return this.prisma.notification.findUnique({
+            where: {
+                id: notificationId,
+                userId,
+            },
+        });
+    }
+
     async markAsRead(notificationId: number, userId: number) {
         return this.prisma.notification.update({
             where: { id: notificationId, userId },

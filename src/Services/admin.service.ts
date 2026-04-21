@@ -497,4 +497,28 @@ export class AdminService {
             return result;
         });
     }
+
+    async sendAnnouncementToAllUsers(title: string, message: string) {
+        const users = await this.prisma.user.findMany({
+            where: {
+                status: 'ACTIVE'
+            },
+            select: { id: true }
+        });
+
+        const data = users.map(user => ({
+            userId: user.id,
+            title,
+            message,
+            type: 'ANNOUNCEMENT' as any,
+        }));
+
+        if (data.length > 0) {
+            await this.prisma.notification.createMany({
+                data,
+            });
+        }
+
+        return { success: true, count: data.length };
+    }
 }

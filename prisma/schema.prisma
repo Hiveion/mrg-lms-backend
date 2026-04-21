@@ -90,25 +90,25 @@ enum DiscussionType {
 }
 
 model User {
-  id             Int        @id @default(autoincrement()) @map("user_id")
-  email          String     @unique
-  googleId       String?    @unique @map("google_id")
-  passwordHash   String?    @map("password_hash")
-  firstName      String     @map("first_name")
-  lastName       String     @map("last_name")
-  profilePicture String?    @map("profile_picture")
-  phoneNumber    String?    @map("phone_number")
-  createdAt      DateTime   @default(now()) @map("created_at")
-  updatedAt      DateTime   @updatedAt @map("updated_at")
-  status         UserStatus @default(INCOMPLETE)
-  userType       UserRole?  @map("user_type")
-  mustChangePassword Boolean @default(false) @map("must_change_password")
-  invitationExpiresAt DateTime? @map("invitation_expires_at")
-  resetPasswordToken   String?   @map("reset_password_token")
-  resetPasswordExpires DateTime? @map("reset_password_expires")
-  googleAccessToken    String?   @map("google_access_token")
-  googleRefreshToken   String?   @map("google_refresh_token")
-  googleTokenExpiry    DateTime? @map("google_token_expiry")
+  id                   Int        @id @default(autoincrement()) @map("user_id")
+  email                String     @unique
+  googleId             String?    @unique @map("google_id")
+  passwordHash         String?    @map("password_hash")
+  firstName            String     @map("first_name")
+  lastName             String     @map("last_name")
+  profilePicture       String?    @map("profile_picture")
+  phoneNumber          String?    @map("phone_number")
+  createdAt            DateTime   @default(now()) @map("created_at")
+  updatedAt            DateTime   @updatedAt @map("updated_at")
+  status               UserStatus @default(INCOMPLETE)
+  userType             UserRole?  @map("user_type")
+  mustChangePassword   Boolean    @default(false) @map("must_change_password")
+  invitationExpiresAt  DateTime?  @map("invitation_expires_at")
+  resetPasswordToken   String?    @map("reset_password_token")
+  resetPasswordExpires DateTime?  @map("reset_password_expires")
+  googleAccessToken    String?    @map("google_access_token")
+  googleRefreshToken   String?    @map("google_refresh_token")
+  googleTokenExpiry    DateTime?  @map("google_token_expiry")
 
   // Relationships
   tutorProfile       Tutor?
@@ -232,7 +232,7 @@ model Class {
   enrollments       Enrollment[]
   homeworks         Homework[]
   discussionThreads DiscussionThread[]
-  recordings  Recording[]
+  recordings        Recording[]
 
   @@map("classes")
 }
@@ -297,11 +297,11 @@ model Session {
   createdAt            DateTime      @default(now()) @map("created_at")
   updatedAt            DateTime      @updatedAt @map("updated_at")
 
-  class                Class               @relation(fields: [classId], references: [id], onDelete: Cascade)
-  rescheduledSession   Session?            @relation("RescheduledSession", fields: [rescheduledSessionId], references: [id])
-  nextSessions         Session[]           @relation("RescheduledSession")
-  rescheduleRequests   RescheduleRequest[]
-  recording            Recording?
+  class              Class               @relation(fields: [classId], references: [id], onDelete: Cascade)
+  rescheduledSession Session?            @relation("RescheduledSession", fields: [rescheduledSessionId], references: [id])
+  nextSessions       Session[]           @relation("RescheduledSession")
+  rescheduleRequests RescheduleRequest[]
+  recording          Recording?
 
   @@map("sessions")
 }
@@ -331,7 +331,6 @@ model Recording {
 
   @@map("recordings")
 }
-
 
 model Enrollment {
   id               Int              @id @default(autoincrement()) @map("enrollment_id")
@@ -469,6 +468,7 @@ model RescheduleRequest {
 }
 
 enum NotificationType {
+  ANNOUNCEMENT
   SYSTEM
   CLASS
   HOMEWORK
