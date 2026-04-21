@@ -521,4 +521,50 @@ export class AdminService {
 
         return { success: true, count: data.length };
     }
+
+    async deleteAnnouncement(adminNotifId: number) {
+        const notif = await this.prisma.notification.findUnique({ where: { id: adminNotifId } });
+        if (!notif) throw new NotFoundException('Announcement not found');
+
+        // We calculate a 2-minute time window around createdAt to safely delete all instances of this broadcast
+        const windowStart = new Date(notif.createdAt.getTime() - 120000);
+        const windowEnd = new Date(notif.createdAt.getTime() + 120000);
+
+        const result = await this.prisma.notification.deleteMany({
+            where: {
+                title: notif.title,
+                message: notif.message,
+                type: 'ANNOUNCEMENT' as any,
+                createdAt: {
+                    gte: windowStart,
+                    lte: windowEnd
+                }
+            }
+        });
+
+        return { success: true, deletedCount: result.count };
+    }
+
+    async updateAnnouncement(adminNotifId: number, title: string, message: string) {
+        const notif = await this.prisma.notification.findUnique({ where: { id: adminNotifId } });
+        if (!notif) throw new NotFoundException('Announcement not found');
+
+        const windowStart = new Date(notif.createdAt.getTime() - 120000);
+        const windowEnd = new Date(notif.createdAt.getTime() + 120000);
+
+        const result = await this.prisma.notification.updateMany({
+            where: {
+                title: notif.title,
+                message: notif.message,
+                type: 'ANNOUNCEMENT' as any,
+                createdAt: {
+                    gte: windowStart,
+                    lte: windowEnd
+                }
+            },
+            data: { title, message }
+        });
+
+        return { success: true, updatedCount: result.count };
+    }
 }
