@@ -48,6 +48,11 @@ enum SessionStatus {
   RESCHEDULED
 }
 
+enum SessionType {
+  REGULAR
+  EXTRA
+}
+
 // Homework Enums
 enum HomeworkType {
   QUIZ
@@ -289,6 +294,7 @@ model Session {
   classId              Int           @map("class_id")
   dateTime             DateTime      @map("date_time")
   duration             Int // in minutes
+  type                 SessionType   @default(REGULAR) @map("session_type")
   status               SessionStatus @default(SCHEDULED)
   rescheduledSessionId Int?          @map("rescheduled_session_id")
   cancellationReason   String?       @map("cancellation_reason")
