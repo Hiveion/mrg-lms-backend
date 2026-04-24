@@ -2,6 +2,7 @@ import { Controller, Get, Post, Body, Patch, Param, Delete, ParseIntPipe, UseGua
 import { SessionService } from '../Services/session.service';
 import { CreateSessionDto, UpdateSessionDto } from '../DTOs/session.dto';
 import { RequestExtraClassDto } from '../DTOs/extra-class-request.dto';
+import { ApproveExtraClassDto, DeclineExtraClassDto } from '../DTOs/approve-extra-class.dto';
 import { AuthGuard } from '@nestjs/passport';
 
 @Controller('sessions')
@@ -42,6 +43,25 @@ export class SessionController {
     @Get('extra-class-requests')
     findAllExtraClassRequests() {
         return this.sessionService.findAllExtraClassRequests();
+    }
+
+    @UseGuards(AuthGuard('jwt'))
+    @Patch('extra-class-requests/:id/approve')
+    approveExtraClass(
+        @Request() req: any,
+        @Param('id', ParseIntPipe) id: number,
+        @Body() dto: ApproveExtraClassDto,
+    ) {
+        return this.sessionService.approveExtraClass(id, dto.rate, dto.link, req.user.id);
+    }
+
+    @UseGuards(AuthGuard('jwt'))
+    @Patch('extra-class-requests/:id/decline')
+    declineExtraClass(
+        @Param('id', ParseIntPipe) id: number,
+        @Body() dto: DeclineExtraClassDto,
+    ) {
+        return this.sessionService.declineExtraClass(id, dto.reason);
     }
 
     @Get(':id')

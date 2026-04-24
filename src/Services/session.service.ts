@@ -489,4 +489,129 @@ export class SessionService {
 
         return extraSession;
     }
+
+    async approveExtraClass(sessionId: number, rate: number, link?: string, adminUserId?: number) {
+        const session = await this.prisma.session.findUnique({
+            where: { id: sessionId },
+            include: {
+                class: {
+                    include: {
+                        subject: true,
+                        tutor: { include: { user: true } },
+                        enrollments: {
+                            where: { status: EnrollmentStatus.ACTIVE },
+                            include: { student: { include: { user: true } } },
+                        },
+                    },
+                },
+            },
+        });
+
+        if (!session) {
+            throw new NotFoundException(`Session with ID ${sessionId} not found`);
+        }
+
+        if (session.type !== SessionType.EXTRA || session.status !== SessionStatus.PENDING) {
+            throw new BadRequestException('This session is not a pending extra class request');
+        }
+
+        const updatedSession = await this.prisma.session.update({
+            where: { id: sessionId },
+            data: {
+                status: SessionStatus.SCHEDULED,
+                extraClassRate: rate,
+                link: link || undefined,
+            },
+            include: {
+                class: {
+                    include: {
+                        subject: true,
+                        tutor: {
+                            select: {
+                                user: {
+                                    select: {
+                                        firstName: true,
+                                        lastName: true,
+                                        email: true,
+                                        profilePicture: true,
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        });
+
+        // Notify tutor
+        try {
+            const dateTimeStr = new Date(session.dateTime).toLocaleString();
+            await this.notificationService.createNotification(
+                session.class.tutor.userId,
+                'Extra Class Approved',
+                `Your extra class request for ${session.class.subject.name} - ${session.class.name} on ${dateTimeStr} has been approved. Rate: ${rate}`,
+                NotificationType.CLASS
+            );
+
+            // Notify students
+            const studentUserIds = session.class.enrollments.map(e => e.student.userId);
+            if (studentUserIds.length > 0) {
+                await this.notificationService.createManyNotifications(
+                    studentUserIds,
+                    'Extra Class Scheduled',
+                    `An extra class for ${session.class.subject.name} - ${session.class.name} has been scheduled for ${dateTimeStr}.`,
+                    NotificationType.CLASS
+                );
+            }
+        } catch (error) {
+            console.error('Failed to send extra class approval notifications:', error);
+        }
+
+        return updatedSession;
+    }
+
+    async declineExtraClass(sessionId: number, reason?: string) {
+        const session = await this.prisma.session.findUnique({
+            where: { id: sessionId },
+            include: {
+                class: {
+                    include: {
+                        subject: true,
+                        tutor: { include: { user: true } },
+                    },
+                },
+            },
+        });
+
+        if (!session) {
+            throw new NotFoundException(`Session with ID ${sessionId} not found`);
+        }
+
+        if (session.type !== SessionType.EXTRA || session.status !== SessionStatus.PENDING) {
+            throw new BadRequestException('This session is not a pending extra class request');
+        }
+
+        const updatedSession = await this.prisma.session.update({
+            where: { id: sessionId },
+            data: {
+                status: SessionStatus.CANCELLED,
+                cancellationReason: reason || 'Extra class request declined by admin',
+            },
+        });
+
+        // Notify tutor
+        try {
+            const dateTimeStr = new Date(session.dateTime).toLocaleString();
+            await this.notificationService.createNotification(
+                session.class.tutor.userId,
+                'Extra Class Declined',
+                `Your extra class request for ${session.class.subject.name} - ${session.class.name} on ${dateTimeStr} has been declined.${reason ? ` Reason: ${reason}` : ''}`,
+                NotificationType.CLASS
+            );
+        } catch (error) {
+            console.error('Failed to send extra class decline notification:', error);
+        }
+
+        return updatedSession;
+    }
 }
