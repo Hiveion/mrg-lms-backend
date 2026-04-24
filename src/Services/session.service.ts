@@ -1,7 +1,8 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../Database/prisma.service';
 import { CreateSessionDto, UpdateSessionDto } from '../DTOs/session.dto';
-import { EnrollmentStatus, SessionStatus, NotificationType, UserRole } from '@prisma/client';
+import { RequestExtraClassDto } from '../DTOs/extra-class-request.dto';
+import { EnrollmentStatus, SessionStatus, NotificationType, UserRole, SessionType } from '@prisma/client';
 import { NotificationService } from './notification.service';
 import { GoogleService } from './google.service';
 
@@ -368,5 +369,93 @@ export class SessionService {
                 dateTime: 'asc',
             },
         });
+    }
+
+    async requestExtraClass(requestDto: RequestExtraClassDto, userId: number) {
+        const user = await this.prisma.user.findUnique({
+            where: { id: userId },
+        });
+
+        if (!user) {
+            throw new NotFoundException(`User with ID ${userId} not found`);
+        }
+
+        if (user.userType !== UserRole.TUTOR) {
+            throw new BadRequestException('Only tutors can request extra classes');
+        }
+
+        const classItem = await this.prisma.class.findUnique({
+            where: { id: requestDto.classId },
+            include: {
+                tutor: true,
+                subject: true,
+            },
+        });
+
+        if (!classItem) {
+            throw new NotFoundException(`Class with ID ${requestDto.classId} not found`);
+        }
+
+        // Verify the tutor owns this class
+        if (classItem.tutor.userId !== userId) {
+            throw new BadRequestException('Tutors can only request extra classes for their own classes');
+        }
+
+        // Create a session with PENDING status and EXTRA type
+        const extraSession = await this.prisma.session.create({
+            data: {
+                classId: requestDto.classId,
+                dateTime: new Date(requestDto.dateTime),
+                duration: requestDto.duration,
+                status: SessionStatus.PENDING,
+                type: SessionType.EXTRA,
+            },
+            include: {
+                class: {
+                    include: {
+                        subject: true,
+                        tutor: {
+                            select: {
+                                user: {
+                                    select: {
+                                        firstName: true,
+                                        lastName: true,
+                                        email: true,
+                                        profilePicture: true,
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        });
+
+        // Send notification to all admins
+        try {
+            const dateTimeStr = new Date(extraSession.dateTime).toLocaleString();
+            const tutorName = `${user.firstName} ${user.lastName}`;
+            const title = 'Extra Class Request';
+            const message = `${tutorName} has requested an extra class for ${classItem.subject.name} - ${classItem.name} on ${dateTimeStr}. ${requestDto.reason ? `Reason: ${requestDto.reason}` : ''}`;
+
+            const admins = await this.prisma.user.findMany({
+                where: { userType: UserRole.ADMIN },
+                select: { id: true },
+            });
+
+            const adminIds = admins.map(a => a.id);
+            if (adminIds.length > 0) {
+                await this.notificationService.createManyNotifications(
+                    adminIds,
+                    title,
+                    message,
+                    NotificationType.CLASS
+                );
+            }
+        } catch (error) {
+            console.error('Failed to send extra class request notifications:', error);
+        }
+
+        return extraSession;
     }
 }

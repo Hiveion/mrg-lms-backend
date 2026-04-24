@@ -46,6 +46,7 @@ enum SessionStatus {
   COMPLETED
   CANCELLED
   RESCHEDULED
+  PENDING
 }
 
 enum SessionType {
@@ -294,8 +295,8 @@ model Session {
   classId              Int           @map("class_id")
   dateTime             DateTime      @map("date_time")
   duration             Int // in minutes
-  type                 SessionType   @default(REGULAR) @map("session_type")
   status               SessionStatus @default(SCHEDULED)
+  type                 SessionType   @default(REGULAR)
   rescheduledSessionId Int?          @map("rescheduled_session_id")
   cancellationReason   String?       @map("cancellation_reason")
   link                 String?

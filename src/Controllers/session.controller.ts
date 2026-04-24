@@ -1,6 +1,7 @@
 import { Controller, Get, Post, Body, Patch, Param, Delete, ParseIntPipe, UseGuards, Request } from '@nestjs/common';
 import { SessionService } from '../Services/session.service';
 import { CreateSessionDto, UpdateSessionDto } from '../DTOs/session.dto';
+import { RequestExtraClassDto } from '../DTOs/extra-class-request.dto';
 import { AuthGuard } from '@nestjs/passport';
 
 @Controller('sessions')
@@ -23,6 +24,12 @@ export class SessionController {
     @Post()
     create(@Request() req: any, @Body() createSessionDto: CreateSessionDto) {
         return this.sessionService.create(createSessionDto, req.user.id);
+    }
+
+    @UseGuards(AuthGuard('jwt'))
+    @Post('request-extra-class')
+    requestExtraClass(@Request() req: any, @Body() requestDto: RequestExtraClassDto) {
+        return this.sessionService.requestExtraClass(requestDto, req.user.id);
     }
 
     @UseGuards(AuthGuard('jwt'))
