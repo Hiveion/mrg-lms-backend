@@ -371,6 +371,37 @@ export class SessionService {
         });
     }
 
+    async findAllExtraClassRequests() {
+        return this.prisma.session.findMany({
+            where: {
+                type: SessionType.EXTRA,
+                status: SessionStatus.PENDING,
+            },
+            include: {
+                class: {
+                    include: {
+                        subject: true,
+                        tutor: {
+                            include: {
+                                user: {
+                                    select: {
+                                        firstName: true,
+                                        lastName: true,
+                                        email: true,
+                                        profilePicture: true,
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+            orderBy: {
+                createdAt: 'desc',
+            },
+        });
+    }
+
     async requestExtraClass(requestDto: RequestExtraClassDto, userId: number) {
         const user = await this.prisma.user.findUnique({
             where: { id: userId },

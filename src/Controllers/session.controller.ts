@@ -38,6 +38,12 @@ export class SessionController {
         return this.sessionService.findAll();
     }
 
+    @UseGuards(AuthGuard('jwt'))
+    @Get('extra-class-requests')
+    findAllExtraClassRequests() {
+        return this.sessionService.findAllExtraClassRequests();
+    }
+
     @Get(':id')
     findOne(@Param('id', ParseIntPipe) id: number) {
         return this.sessionService.findOne(id);
