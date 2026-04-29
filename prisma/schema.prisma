@@ -143,9 +143,10 @@ model Tutor {
   user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId Int  @unique @map("user_id")
 
-  classes        Class[]
-  ratings        Rating[]
-  availabilities TutorAvailability[]
+  classes          Class[]
+  ratings          Rating[]
+  availabilities   TutorAvailability[]
+  sessionFeedbacks SessionFeedback[]
 
   @@map("tutors")
 }
@@ -153,6 +154,7 @@ model Tutor {
 model Student {
   id             Int      @id @default(autoincrement()) @map("student_id")
   grade          String?
+  rating         Float    @default(0.0)
   enrollmentDate DateTime @default(now()) @map("enrollment_date")
 
   user                User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -162,6 +164,7 @@ model Student {
   homeworkSubmissions HomeworkSubmission[]
   availabilities      StudentAvailability[]
   rescheduleRequests  RescheduleRequest[]
+  sessionFeedbacks    SessionFeedback[]
 
   @@map("students")
 }
@@ -300,7 +303,7 @@ model Session {
   rescheduledSessionId Int?          @map("rescheduled_session_id")
   cancellationReason   String?       @map("cancellation_reason")
   link                 String?
-  extraClassRate       Float?          @map("extra_class_rate")
+  extraClassRate       Float?        @map("extra_class_rate")
   googleEventId        String?       @map("google_event_id")
   createdAt            DateTime      @default(now()) @map("created_at")
   updatedAt            DateTime      @updatedAt @map("updated_at")
@@ -310,6 +313,7 @@ model Session {
   nextSessions       Session[]           @relation("RescheduledSession")
   rescheduleRequests RescheduleRequest[]
   recording          Recording?
+  feedbacks          SessionFeedback[]
 
   @@map("sessions")
 }
@@ -559,4 +563,22 @@ model ReplyLike {
 
   @@unique([replyId, userId])
   @@map("reply_likes")
+}
+
+model SessionFeedback {
+  id        Int      @id @default(autoincrement()) @map("feedback_id")
+  sessionId Int      @map("session_id")
+  studentId Int      @map("student_id")
+  tutorId   Int      @map("tutor_id")
+  rating    Int
+  note      String   @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  tutor   Tutor   @relation(fields: [tutorId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, studentId])
+  @@map("session_feedbacks")
 }
