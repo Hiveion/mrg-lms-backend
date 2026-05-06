@@ -70,3 +70,14 @@ export class UpdateSessionDto {
     @IsOptional()
     link?: string;
 }
+
+export class CreateSessionFeedbackDto {
+    @IsInt()
+    @IsNotEmpty()
+    @Min(1)
+    rating: number;
+
+    @IsString()
+    @IsNotEmpty()
+    note: string;
+}

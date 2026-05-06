@@ -1,6 +1,6 @@
 import { Controller, Get, Post, Body, Patch, Param, Delete, ParseIntPipe, UseGuards, Request } from '@nestjs/common';
 import { SessionService } from '../Services/session.service';
-import { CreateSessionDto, UpdateSessionDto } from '../DTOs/session.dto';
+import { CreateSessionDto, UpdateSessionDto, CreateSessionFeedbackDto } from '../DTOs/session.dto';
 import { RequestExtraClassDto } from '../DTOs/extra-class-request.dto';
 import { ApproveExtraClassDto, DeclineExtraClassDto } from '../DTOs/approve-extra-class.dto';
 import { AuthGuard } from '@nestjs/passport';
@@ -8,6 +8,17 @@ import { AuthGuard } from '@nestjs/passport';
 @Controller('sessions')
 export class SessionController {
     constructor(private readonly sessionService: SessionService) { }
+
+    @UseGuards(AuthGuard('jwt'))
+    @Post(':id/student/:studentId/feedback')
+    createFeedback(
+        @Param('id', ParseIntPipe) id: number,
+        @Param('studentId', ParseIntPipe) studentId: number,
+        @Request() req: any,
+        @Body() createFeedbackDto: CreateSessionFeedbackDto
+    ) {
+        return this.sessionService.createFeedback(id, studentId, req.user.id, createFeedbackDto);
+    }
 
     @UseGuards(AuthGuard('jwt'))
     @Get('my-sessions')

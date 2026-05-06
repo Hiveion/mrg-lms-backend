@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../Database/prisma.service';
-import { CreateSessionDto, UpdateSessionDto } from '../DTOs/session.dto';
+import { CreateSessionDto, UpdateSessionDto, CreateSessionFeedbackDto } from '../DTOs/session.dto';
 import { RequestExtraClassDto } from '../DTOs/extra-class-request.dto';
 import { EnrollmentStatus, SessionStatus, NotificationType, UserRole, SessionType } from '@prisma/client';
 import { NotificationService } from './notification.service';
@@ -614,4 +614,76 @@ export class SessionService {
 
         return updatedSession;
     }
+
+    async createFeedback(sessionId: number, studentId: number, userId: number, feedbackDto: CreateSessionFeedbackDto) {
+        const session = await this.prisma.session.findUnique({
+            where: { id: sessionId },
+            include: { class: { include: { tutor: true } } }
+        });
+
+        if (!session) {
+            throw new NotFoundException('Session not found');
+        }
+
+        const tutor = session.class.tutor;
+        if (tutor.userId !== userId) {
+            throw new BadRequestException('Only the tutor of this class can leave feedback');
+        }
+
+        const student = await this.prisma.student.findUnique({
+            where: { id: studentId }
+        });
+
+        if (!student) {
+            throw new NotFoundException('Student not found');
+        }
+
+        const existingFeedback = await this.prisma.sessionFeedback.findUnique({
+            where: {
+                sessionId_studentId: {
+                    sessionId,
+                    studentId
+                }
+            }
+        });
+
+        if (existingFeedback) {
+            throw new BadRequestException('Feedback already exists for this student in this session');
+        }
+
+        // Create the feedback
+        const feedback = await this.prisma.sessionFeedback.create({
+            data: {
+                sessionId,
+                studentId,
+                tutorId: tutor.id,
+                rating: feedbackDto.rating,
+                note: feedbackDto.note
+            }
+        });
+
+        // Calculate new average rating for the student
+        const allFeedbacks = await this.prisma.sessionFeedback.findMany({
+            where: { studentId }
+        });
+
+        const totalRating = allFeedbacks.reduce((sum, f) => sum + f.rating, 0);
+        const averageRating = allFeedbacks.length > 0 ? (totalRating / allFeedbacks.length) : 0;
+
+        await this.prisma.student.update({
+            where: { id: studentId },
+            data: { rating: averageRating }
+        });
+
+        // Set the session status to COMPLETED if not already
+        if (session.status !== SessionStatus.COMPLETED) {
+            await this.prisma.session.update({
+                where: { id: sessionId },
+                data: { status: SessionStatus.COMPLETED }
+            });
+        }
+
+        return feedback;
+    }
+
 }
