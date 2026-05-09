@@ -208,4 +208,78 @@ export class GoogleService {
             this.logger.error(`Failed to delete Google Calendar event: ${error.message}`);
         }
     }
+
+    async fetchAndSaveRecording(sessionId: number): Promise<string | null> {
+        const session = await this.prisma.session.findUnique({
+            where: { id: sessionId },
+            include: { class: { include: { subject: true } } },
+        });
+
+        if (!session?.googleEventId) {
+            this.logger.warn(`Session ${sessionId} has no googleEventId. Skipping.`);
+            return null;
+        }
+
+        const adminUser = await this.prisma.user.findFirst({
+            where: { NOT: { googleRefreshToken: null } },
+        });
+
+        if (!adminUser?.googleRefreshToken) {
+            this.logger.warn('No user with Google credentials found.');
+            return null;
+        }
+
+        this.oauth2Client.setCredentials({
+            refresh_token: adminUser.googleRefreshToken,
+            access_token: adminUser.googleAccessToken,
+        });
+
+        const drive = google.drive({ version: 'v3', auth: this.oauth2Client });
+
+        try {
+            const response = await drive.files.list({
+            q: `mimeType='video/mp4' and trashed=false`,
+            fields: 'files(id, name, webViewLink, createdTime)',
+            orderBy: 'createdTime desc',
+            pageSize: 20,
+            });
+
+            const files = response.data.files || [];
+
+            const sessionEnd = new Date(session.dateTime);
+            sessionEnd.setMinutes(sessionEnd.getMinutes() + (session.duration || 60));
+            const windowEnd = new Date(sessionEnd.getTime() + 3 * 60 * 60 * 1000);
+
+            const matched = files.find((file) => {
+            const created = new Date(file.createdTime!);
+            return created >= sessionEnd && created <= windowEnd;
+            });
+
+            if (!matched) {
+            this.logger.warn(`No recording found for session ${sessionId}`);
+            await this.prisma.session.update({
+                where: { id: sessionId },
+                data: { recordingStatus: 'NOT_FOUND' },
+            });
+            return null;
+            }
+
+            await this.prisma.session.update({
+            where: { id: sessionId },
+            data: {
+                recordingUrl: matched.webViewLink,
+                recordingFileId: matched.id,
+                recordingStatus: 'SAVED',
+            },
+            });
+
+            this.logger.log(`Recording saved for session ${sessionId}: ${matched.webViewLink}`);
+            return matched.webViewLink!;
+
+       } 
+            catch (error: any) {
+                this.logger.error(`Failed to fetch recording: ${error.message}`);
+                return null;
+            }
+    }
 }
