@@ -293,6 +293,12 @@ model RatingLike {
   @@map("rating_likes")
 }
 
+enum SessionRecordingStatus {
+  PENDING
+  SAVED
+  NOT_FOUND
+}
+
 model Session {
   id                   Int           @id @default(autoincrement()) @map("session_id")
   classId              Int           @map("class_id")
@@ -307,6 +313,10 @@ model Session {
   googleEventId        String?       @map("google_event_id")
   createdAt            DateTime      @default(now()) @map("created_at")
   updatedAt            DateTime      @updatedAt @map("updated_at")
+
+  recordingUrl           String?          @map("recording_url")
+  recordingFileId        String?          @map("recording_file_id")
+  recordingStatus        SessionRecordingStatus? @default(PENDING) @map("recording_status")
 
   class              Class               @relation(fields: [classId], references: [id], onDelete: Cascade)
   rescheduledSession Session?            @relation("RescheduledSession", fields: [rescheduledSessionId], references: [id])
