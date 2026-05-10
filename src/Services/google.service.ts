@@ -210,76 +210,111 @@ export class GoogleService {
     }
 
     async fetchAndSaveRecording(sessionId: number): Promise<string | null> {
+        console.log(`=== fetchAndSaveRecording called for session ${sessionId} ===`);
+
         const session = await this.prisma.session.findUnique({
             where: { id: sessionId },
-            include: { class: { include: { subject: true } } },
+            include: {
+                class: {
+                    include: {
+                        subject: true,
+                        tutor: {
+                            include: { user: true }
+                        }
+                    }
+                }
+            },
         });
+
+        console.log(`Session found:`, session ? 'YES' : 'NO');
+        console.log(`GoogleEventId:`, session?.googleEventId);
+        console.log(`Tutor email:`, session?.class?.tutor?.user?.email);
+        console.log(`Tutor has refresh token:`, !!session?.class?.tutor?.user?.googleRefreshToken);
 
         if (!session?.googleEventId) {
             this.logger.warn(`Session ${sessionId} has no googleEventId. Skipping.`);
             return null;
         }
 
+        // Build list of users to search — tutor first, then fallback to admin
+        const usersToSearch: { email: string; googleRefreshToken: string | null; googleAccessToken: string | null }[] = [];
+
+        // 1. Try tutor first (they are the meeting organizer/recorder)
+        if (session.class?.tutor?.user?.googleRefreshToken) {
+            usersToSearch.push(session.class.tutor.user);
+        }
+
+        // 2. Fallback to any admin with tokens
         const adminUser = await this.prisma.user.findFirst({
             where: { NOT: { googleRefreshToken: null } },
         });
+        if (adminUser) usersToSearch.push(adminUser);
 
-        if (!adminUser?.googleRefreshToken) {
+        if (usersToSearch.length === 0) {
             this.logger.warn('No user with Google credentials found.');
             return null;
         }
 
-        this.oauth2Client.setCredentials({
-            refresh_token: adminUser.googleRefreshToken,
-            access_token: adminUser.googleAccessToken,
-        });
+        // search last 7 days for testing
+        const now = new Date();
+        const sessionEnd = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        const windowEnd = new Date();
 
-        const drive = google.drive({ version: 'v3', auth: this.oauth2Client });
+        console.log(`Looking for recordings between: ${sessionEnd} and ${windowEnd}`);
 
-        try {
-            const response = await drive.files.list({
-            q: `mimeType='video/mp4' and trashed=false`,
-            fields: 'files(id, name, webViewLink, createdTime)',
-            orderBy: 'createdTime desc',
-            pageSize: 20,
+        // Search each user's Drive until we find the recording
+        for (const user of usersToSearch) {
+            this.logger.log(`Searching Drive for user: ${user.email}`);
+
+            this.oauth2Client.setCredentials({
+                refresh_token: user.googleRefreshToken,
+                access_token: user.googleAccessToken,
             });
 
-            const files = response.data.files || [];
+            const drive = google.drive({ version: 'v3', auth: this.oauth2Client });
 
-            const sessionEnd = new Date(session.dateTime);
-            sessionEnd.setMinutes(sessionEnd.getMinutes() + (session.duration || 60));
-            const windowEnd = new Date(sessionEnd.getTime() + 3 * 60 * 60 * 1000);
+            try {
+                const response = await drive.files.list({
+                    q: `mimeType='video/mp4' and trashed=false`,
+                    fields: 'files(id, name, webViewLink, createdTime)',
+                    orderBy: 'createdTime desc',
+                    pageSize: 20,
+                });
 
-            const matched = files.find((file) => {
-            const created = new Date(file.createdTime!);
-            return created >= sessionEnd && created <= windowEnd;
-            });
+                const files = response.data.files || [];
+                this.logger.log(`Found ${files.length} mp4 file(s) in ${user.email}'s Drive`);
 
-            if (!matched) {
-            this.logger.warn(`No recording found for session ${sessionId}`);
-            await this.prisma.session.update({
-                where: { id: sessionId },
-                data: { recordingStatus: 'NOT_FOUND' },
-            });
-            return null;
+                const matched = files.find((file) => {
+                    const created = new Date(file.createdTime!);
+                    console.log(`File: ${file.name}, created: ${created}`);
+                    return created >= sessionEnd && created <= windowEnd;
+                });
+
+                if (matched) {
+                    await this.prisma.session.update({
+                        where: { id: sessionId },
+                        data: {
+                            recordingUrl: matched.webViewLink,
+                            recordingFileId: matched.id,
+                            recordingStatus: 'SAVED',
+                        },
+                    });
+
+                    this.logger.log(`Recording saved for session ${sessionId}: ${matched.webViewLink}`);
+                    return matched.webViewLink!;
+                }
+
+            } catch (error: any) {
+                this.logger.error(`Failed to search Drive for ${user.email}: ${error.message}`);
             }
+        }
 
-            await this.prisma.session.update({
+        // Nothing found in any Drive
+        this.logger.warn(`No recording found for session ${sessionId}`);
+        await this.prisma.session.update({
             where: { id: sessionId },
-            data: {
-                recordingUrl: matched.webViewLink,
-                recordingFileId: matched.id,
-                recordingStatus: 'SAVED',
-            },
-            });
-
-            this.logger.log(`Recording saved for session ${sessionId}: ${matched.webViewLink}`);
-            return matched.webViewLink!;
-
-       } 
-            catch (error: any) {
-                this.logger.error(`Failed to fetch recording: ${error.message}`);
-                return null;
-            }
+            data: { recordingStatus: 'NOT_FOUND' },
+        });
+        return null;
     }
 }

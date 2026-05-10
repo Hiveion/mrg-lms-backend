@@ -3,10 +3,15 @@ import { RecordingService } from '../Services/recording.service';
 import { CreateRecordingDto, UpdateRecordingDto } from '../DTOs/recording.dto';
 import { AuthGuard } from '@nestjs/passport';
 import { UserRole } from '@prisma/client';
+import { GoogleService } from '../Services/google.service';  // ← ADD
+
 
 @Controller('recordings')
 export class RecordingController {
-    constructor(private readonly recordingService: RecordingService) { }
+    constructor(
+        private readonly recordingService: RecordingService,
+        private readonly googleService: GoogleService
+    ) { }
 
     @UseGuards(AuthGuard('jwt'))
     @Post()
@@ -21,6 +26,12 @@ export class RecordingController {
     @Get('metadata')
     async getMetadata(@Request() req: any) {
         return this.recordingService.getRecordingMetadata(req.user.id, req.user.userType);
+    }
+    //testing
+    @Get('test-recording/:sessionId')
+    async testRecording(@Param('sessionId', ParseIntPipe) sessionId: number) {
+        const result = await this.googleService.fetchAndSaveRecording(sessionId);
+        return { result };
     }
 
     @UseGuards(AuthGuard('jwt'))
