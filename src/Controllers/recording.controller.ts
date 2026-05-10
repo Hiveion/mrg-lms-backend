@@ -1,9 +1,10 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, ParseIntPipe, UseGuards, Request, ForbiddenException } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, ParseIntPipe, UseGuards, Request, ForbiddenException, Res } from '@nestjs/common';
 import { RecordingService } from '../Services/recording.service';
 import { CreateRecordingDto, UpdateRecordingDto } from '../DTOs/recording.dto';
 import { AuthGuard } from '@nestjs/passport';
 import { UserRole } from '@prisma/client';
-import { GoogleService } from '../Services/google.service';  // ← ADD
+import { GoogleService } from '../Services/google.service';  
+import { Response } from 'express';
 
 
 @Controller('recordings')
@@ -27,11 +28,24 @@ export class RecordingController {
     async getMetadata(@Request() req: any) {
         return this.recordingService.getRecordingMetadata(req.user.id, req.user.userType);
     }
-    //testing
+
+    //test recording fetching
     @Get('test-recording/:sessionId')
     async testRecording(@Param('sessionId', ParseIntPipe) sessionId: number) {
         const result = await this.googleService.fetchAndSaveRecording(sessionId);
         return { result };
+    }
+
+    //streaming
+
+    @UseGuards(AuthGuard('jwt'))
+    @Get('stream/:sessionId')
+    async streamRecording(
+        @Param('sessionId', ParseIntPipe) sessionId: number,
+        @Request() req: any,
+        @Res() res: Response,
+    ) {
+        await this.googleService.streamRecording(sessionId, req.user, res);
     }
 
     @UseGuards(AuthGuard('jwt'))

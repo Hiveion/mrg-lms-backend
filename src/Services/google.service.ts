@@ -317,4 +317,67 @@ export class GoogleService {
         });
         return null;
     }
+
+    async streamRecording(sessionId: number, currentUser: any, res: any) {
+        const session = await this.prisma.session.findUnique({
+            where: { id: sessionId },
+            include: {
+                class: {
+                    include: {
+                        tutor: { include: { user: true } },
+                        enrollments: { include: { student: { include: { user: true } } } }
+                    }
+                }
+            }
+        });
+
+        if (!session?.recordingFileId) {
+            res.status(404).json({ message: 'Recording not found' });
+            return;
+        }
+
+        // Check user is enrolled or is tutor/admin
+        const isAdmin = currentUser.userType === 'ADMIN' || currentUser.userType === 'COORDINATOR';
+        const isTutor = session.class.tutor?.user?.id === currentUser.id;
+        const isEnrolled = session.class.enrollments.some(
+            e => e.student.user.id === currentUser.id
+        );
+
+        if (!isAdmin && !isTutor && !isEnrolled) {
+            res.status(403).json({ message: 'Access denied' });
+            return;
+        }
+
+        // Use tutor or admin credentials
+        const user = session.class.tutor?.user?.googleRefreshToken
+            ? session.class.tutor.user
+            : await this.prisma.user.findFirst({ where: { NOT: { googleRefreshToken: null } } });
+
+        if (!user) {
+            res.status(500).json({ message: 'No Google credentials found' });
+            return;
+        }
+
+        this.oauth2Client.setCredentials({
+            refresh_token: user.googleRefreshToken,
+            access_token: user.googleAccessToken,
+        });
+
+        const drive = google.drive({ version: 'v3', auth: this.oauth2Client });
+
+        try {
+            const driveRes = await drive.files.get(
+                { fileId: session.recordingFileId, alt: 'media' },
+                { responseType: 'stream' }
+            );
+
+            res.setHeader('Content-Type', 'video/mp4');
+            res.setHeader('Content-Disposition', 'inline');
+            driveRes.data.pipe(res);
+
+        } catch (error: any) {
+            this.logger.error(`Failed to stream recording: ${error.message}`);
+            res.status(500).json({ message: 'Failed to stream recording' });
+        }
+    }
 }
