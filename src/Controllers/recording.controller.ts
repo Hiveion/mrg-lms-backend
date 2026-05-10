@@ -37,7 +37,6 @@ export class RecordingController {
     }
 
     //streaming
-
     @UseGuards(AuthGuard('jwt'))
     @Get('stream/:sessionId')
     async streamRecording(
