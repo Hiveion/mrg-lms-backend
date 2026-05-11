@@ -318,7 +318,7 @@ export class GoogleService {
         return null;
     }
 
-    async streamRecording(sessionId: number, currentUser: any, res: any) {
+    async streamRecording(sessionId: number, currentUser: any, res: any, req: any) {
         const session = await this.prisma.session.findUnique({
             where: { id: sessionId },
             include: {
@@ -336,7 +336,6 @@ export class GoogleService {
             return;
         }
 
-        // Check user is enrolled or is tutor/admin
         const isAdmin = currentUser.userType === 'ADMIN' || currentUser.userType === 'COORDINATOR';
         const isTutor = session.class.tutor?.user?.id === currentUser.id;
         const isEnrolled = session.class.enrollments.some(
@@ -348,7 +347,6 @@ export class GoogleService {
             return;
         }
 
-        // Use tutor or admin credentials
         const user = session.class.tutor?.user?.googleRefreshToken
             ? session.class.tutor.user
             : await this.prisma.user.findFirst({ where: { NOT: { googleRefreshToken: null } } });
@@ -366,14 +364,51 @@ export class GoogleService {
         const drive = google.drive({ version: 'v3', auth: this.oauth2Client });
 
         try {
-            const driveRes = await drive.files.get(
-                { fileId: session.recordingFileId, alt: 'media' },
-                { responseType: 'stream' }
-            );
+            // Get file metadata first to know the file size
+            const fileMeta = await drive.files.get({
+                fileId: session.recordingFileId,
+                fields: 'size',
+            });
 
-            res.setHeader('Content-Type', 'video/mp4');
-            res.setHeader('Content-Disposition', 'inline');
-            driveRes.data.pipe(res);
+            const fileSize = parseInt(fileMeta.data.size || '0');
+            const rangeHeader = req.headers['range'];
+
+            if (rangeHeader) {
+                // Parse range
+                const parts = rangeHeader.replace(/bytes=/, '').split('-');
+                const start = parseInt(parts[0], 10);
+                const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+                const chunkSize = end - start + 1;
+
+                res.status(206);
+                res.setHeader('Content-Range', `bytes ${start}-${end}/${fileSize}`);
+                res.setHeader('Accept-Ranges', 'bytes');
+                res.setHeader('Content-Length', chunkSize);
+                res.setHeader('Content-Type', 'video/mp4');
+
+                const driveRes = await drive.files.get(
+                    { fileId: session.recordingFileId, alt: 'media' },
+                    {
+                        responseType: 'stream',
+                        headers: { Range: `bytes=${start}-${end}` },
+                    }
+                );
+
+                driveRes.data.pipe(res);
+            } else {
+                // No range — send full file
+                res.setHeader('Content-Type', 'video/mp4');
+                res.setHeader('Accept-Ranges', 'bytes');
+                res.setHeader('Content-Length', fileSize);
+                res.setHeader('Content-Disposition', 'inline');
+
+                const driveRes = await drive.files.get(
+                    { fileId: session.recordingFileId, alt: 'media' },
+                    { responseType: 'stream' }
+                );
+
+                driveRes.data.pipe(res);
+            }
 
         } catch (error: any) {
             this.logger.error(`Failed to stream recording: ${error.message}`);
