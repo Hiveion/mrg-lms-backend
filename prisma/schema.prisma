@@ -298,6 +298,12 @@ enum SessionRecordingStatus {
   NOT_FOUND
 }
 
+enum SessionTranscriptStatus {
+  PENDING
+  SAVED
+  NOT_FOUND
+}
+
 model Session {
   id                   Int           @id @default(autoincrement()) @map("session_id")
   classId              Int           @map("class_id")
@@ -316,6 +322,10 @@ model Session {
   recordingUrl           String?          @map("recording_url")
   recordingFileId        String?          @map("recording_file_id")
   recordingStatus        SessionRecordingStatus? @default(PENDING) @map("recording_status")
+
+  transcriptUrl        String?   @map("transcript_url")
+  transcriptFileId     String?   @map("transcript_file_id")
+  transcriptStatus     SessionTranscriptStatus? @default(PENDING) @map("transcript_status")
 
   class              Class               @relation(fields: [classId], references: [id], onDelete: Cascade)
   rescheduledSession Session?            @relation("RescheduledSession", fields: [rescheduledSessionId], references: [id])
