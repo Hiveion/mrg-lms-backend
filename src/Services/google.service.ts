@@ -415,4 +415,101 @@ export class GoogleService {
             res.status(500).json({ message: 'Failed to stream recording' });
         }
     }
+
+    async fetchAndSaveTranscript(sessionId: number): Promise<string | null> {
+        console.log(`=== fetchAndSaveTranscript called for session ${sessionId} ===`);
+
+        const session = await this.prisma.session.findUnique({
+            where: { id: sessionId },
+            include: {
+                class: {
+                    include: {
+                        subject: true,
+                        tutor: { include: { user: true } }
+                    }
+                }
+            },
+        });
+
+        if (!session?.googleEventId) {
+            this.logger.warn(`Session ${sessionId} has no googleEventId. Skipping transcript.`);
+            return null;
+        }
+
+        // Build users to search — tutor first, then admin
+        const usersToSearch: { email: string; googleRefreshToken: string | null; googleAccessToken: string | null }[] = [];
+
+        if (session.class?.tutor?.user?.googleRefreshToken) {
+            usersToSearch.push(session.class.tutor.user);
+        }
+
+        const adminUser = await this.prisma.user.findFirst({
+            where: { NOT: { googleRefreshToken: null } },
+        });
+        if (adminUser) usersToSearch.push(adminUser);
+
+        if (usersToSearch.length === 0) {
+            this.logger.warn('No user with Google credentials found.');
+            return null;
+        }
+
+        // Search last 7 days (same window logic as recording)
+        const now = new Date();
+        const windowStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        const windowEnd = new Date();
+
+        for (const user of usersToSearch) {
+            this.logger.log(`Searching Drive for transcript: ${user.email}`);
+
+            this.oauth2Client.setCredentials({
+                refresh_token: user.googleRefreshToken,
+                access_token: user.googleAccessToken,
+            });
+
+            const drive = google.drive({ version: 'v3', auth: this.oauth2Client });
+
+            try {
+                // Gemini transcripts are saved as Google Docs
+                const response = await drive.files.list({
+                    q: `mimeType='application/vnd.google-apps.document' and name contains 'Transcript' and trashed=false`,
+                    fields: 'files(id, name, webViewLink, createdTime)',
+                    orderBy: 'createdTime desc',
+                    pageSize: 20,
+                });
+
+                const files = response.data.files || [];
+                this.logger.log(`Found ${files.length} transcript doc(s) in ${user.email}'s Drive`);
+
+                const matched = files.find((file) => {
+                    const created = new Date(file.createdTime!);
+                    console.log(`Transcript: ${file.name}, created: ${created}`);
+                    return created >= windowStart && created <= windowEnd;
+                });
+
+                if (matched) {
+                    await this.prisma.session.update({
+                        where: { id: sessionId },
+                        data: {
+                            transcriptUrl: matched.webViewLink,
+                            transcriptFileId: matched.id,
+                            transcriptStatus: 'SAVED',
+                        },
+                    });
+
+                    this.logger.log(`Transcript saved for session ${sessionId}: ${matched.webViewLink}`);
+                    return matched.webViewLink!;
+                }
+
+            } catch (error: any) {
+                this.logger.error(`Failed to search transcript for ${user.email}: ${error.message}`);
+            }
+        }
+
+        this.logger.warn(`No transcript found for session ${sessionId}`);
+        await this.prisma.session.update({
+            where: { id: sessionId },
+            data: { transcriptStatus: 'NOT_FOUND' },
+        });
+        return null;
+    }
 }
