@@ -48,12 +48,23 @@ export class RecordingController {
     ) {
         await this.googleService.streamRecording(sessionId, req.user, res, req);
     }
+    
     // Manually trigger recording fetch — original working version
     @Get('fetch/:sessionId')
     async fetchRecording(
         @Param('sessionId', ParseIntPipe) sessionId: number,
     ) {
         const result = await this.googleService.fetchAndSaveRecording(sessionId);
+        return { result };
+    }
+
+    // Manually trigger transcript fetch 
+    @Get('fetch-transcript/:sessionId')
+    async fetchTranscript(
+        @Param('sessionId', ParseIntPipe) sessionId: number,
+        @Request() req: any,
+    ) {
+        const result = await this.googleService.fetchAndSaveTranscript(sessionId);
         return { result };
     }
 }
