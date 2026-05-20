@@ -46,6 +46,12 @@ enum SessionStatus {
   COMPLETED
   CANCELLED
   RESCHEDULED
+  PENDING
+}
+
+enum SessionType {
+  REGULAR
+  EXTRA
 }
 
 // Homework Enums
@@ -90,25 +96,25 @@ enum DiscussionType {
 }
 
 model User {
-  id             Int        @id @default(autoincrement()) @map("user_id")
-  email          String     @unique
-  googleId       String?    @unique @map("google_id")
-  passwordHash   String?    @map("password_hash")
-  firstName      String     @map("first_name")
-  lastName       String     @map("last_name")
-  profilePicture String?    @map("profile_picture")
-  phoneNumber    String?    @map("phone_number")
-  createdAt      DateTime   @default(now()) @map("created_at")
-  updatedAt      DateTime   @updatedAt @map("updated_at")
-  status         UserStatus @default(INCOMPLETE)
-  userType       UserRole?  @map("user_type")
-  mustChangePassword Boolean @default(false) @map("must_change_password")
-  invitationExpiresAt DateTime? @map("invitation_expires_at")
-  resetPasswordToken   String?   @map("reset_password_token")
-  resetPasswordExpires DateTime? @map("reset_password_expires")
-  googleAccessToken    String?   @map("google_access_token")
-  googleRefreshToken   String?   @map("google_refresh_token")
-  googleTokenExpiry    DateTime? @map("google_token_expiry")
+  id                   Int        @id @default(autoincrement()) @map("user_id")
+  email                String     @unique
+  googleId             String?    @unique @map("google_id")
+  passwordHash         String?    @map("password_hash")
+  firstName            String     @map("first_name")
+  lastName             String     @map("last_name")
+  profilePicture       String?    @map("profile_picture")
+  phoneNumber          String?    @map("phone_number")
+  createdAt            DateTime   @default(now()) @map("created_at")
+  updatedAt            DateTime   @updatedAt @map("updated_at")
+  status               UserStatus @default(INCOMPLETE)
+  userType             UserRole?  @map("user_type")
+  mustChangePassword   Boolean    @default(false) @map("must_change_password")
+  invitationExpiresAt  DateTime?  @map("invitation_expires_at")
+  resetPasswordToken   String?    @map("reset_password_token")
+  resetPasswordExpires DateTime?  @map("reset_password_expires")
+  googleAccessToken    String?    @map("google_access_token")
+  googleRefreshToken   String?    @map("google_refresh_token")
+  googleTokenExpiry    DateTime?  @map("google_token_expiry")
 
   // Relationships
   tutorProfile       Tutor?
@@ -137,9 +143,10 @@ model Tutor {
   user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId Int  @unique @map("user_id")
 
-  classes        Class[]
-  ratings        Rating[]
-  availabilities TutorAvailability[]
+  classes          Class[]
+  ratings          Rating[]
+  availabilities   TutorAvailability[]
+  sessionFeedbacks SessionFeedback[]
 
   @@map("tutors")
 }
@@ -147,6 +154,7 @@ model Tutor {
 model Student {
   id             Int      @id @default(autoincrement()) @map("student_id")
   grade          String?
+  rating         Float    @default(0.0)
   enrollmentDate DateTime @default(now()) @map("enrollment_date")
 
   user                User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -156,6 +164,7 @@ model Student {
   homeworkSubmissions HomeworkSubmission[]
   availabilities      StudentAvailability[]
   rescheduleRequests  RescheduleRequest[]
+  sessionFeedbacks    SessionFeedback[]
 
   @@map("students")
 }
@@ -232,7 +241,6 @@ model Class {
   enrollments       Enrollment[]
   homeworks         Homework[]
   discussionThreads DiscussionThread[]
-  recordings  Recording[]
 
   @@map("classes")
 }
@@ -284,52 +292,48 @@ model RatingLike {
   @@map("rating_likes")
 }
 
+enum SessionRecordingStatus {
+  PENDING
+  SAVED
+  NOT_FOUND
+}
+
+enum SessionTranscriptStatus {
+  PENDING
+  SAVED
+  NOT_FOUND
+}
+
 model Session {
   id                   Int           @id @default(autoincrement()) @map("session_id")
   classId              Int           @map("class_id")
   dateTime             DateTime      @map("date_time")
   duration             Int // in minutes
   status               SessionStatus @default(SCHEDULED)
+  type                 SessionType   @default(REGULAR)
   rescheduledSessionId Int?          @map("rescheduled_session_id")
   cancellationReason   String?       @map("cancellation_reason")
   link                 String?
+  extraClassRate       Float?        @map("extra_class_rate")
   googleEventId        String?       @map("google_event_id")
   createdAt            DateTime      @default(now()) @map("created_at")
   updatedAt            DateTime      @updatedAt @map("updated_at")
 
-  class                Class               @relation(fields: [classId], references: [id], onDelete: Cascade)
-  rescheduledSession   Session?            @relation("RescheduledSession", fields: [rescheduledSessionId], references: [id])
-  nextSessions         Session[]           @relation("RescheduledSession")
-  rescheduleRequests   RescheduleRequest[]
-  recording            Recording?
+  recordingUrl           String?          @map("recording_url")
+  recordingFileId        String?          @map("recording_file_id")
+  recordingStatus        SessionRecordingStatus? @default(PENDING) @map("recording_status")
+
+  transcriptUrl        String?   @map("transcript_url")
+  transcriptFileId     String?   @map("transcript_file_id")
+  transcriptStatus     SessionTranscriptStatus? @default(PENDING) @map("transcript_status")
+
+  class              Class               @relation(fields: [classId], references: [id], onDelete: Cascade)
+  rescheduledSession Session?            @relation("RescheduledSession", fields: [rescheduledSessionId], references: [id])
+  nextSessions       Session[]           @relation("RescheduledSession")
+  rescheduleRequests RescheduleRequest[]
+  feedbacks          SessionFeedback[]
 
   @@map("sessions")
-}
-
-enum RecordingStatus {
-  AVAILABLE
-  EXPIRING_SOON
-  EXPIRED
-}
-
-model Recording {
-  id            Int             @id @default(autoincrement()) @map("recording_id")
-  sessionId     Int             @unique @map("session_id")
-  classId       Int             @map("class_id")
-  videoUrl      String          @map("video_url")
-  duration      String?
-  fileSize      String?         @map("file_size")
-  viewCount     Int             @default(0) @map("view_count")
-  retentionDays Int             @default(14) @map("retention_days")
-  status        RecordingStatus @default(AVAILABLE)
-  expiresAt     DateTime        @map("expires_at")
-  createdAt     DateTime        @default(now()) @map("created_at")
-  updatedAt     DateTime        @updatedAt @map("updated_at")
-
-  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  class   Class   @relation(fields: [classId], references: [id], onDelete: Cascade)
-
-  @@map("recordings")
 }
 
 
@@ -469,6 +473,7 @@ model RescheduleRequest {
 }
 
 enum NotificationType {
+  ANNOUNCEMENT
   SYSTEM
   CLASS
   HOMEWORK
@@ -551,4 +556,22 @@ model ReplyLike {
 
   @@unique([replyId, userId])
   @@map("reply_likes")
+}
+
+model SessionFeedback {
+  id        Int      @id @default(autoincrement()) @map("feedback_id")
+  sessionId Int      @map("session_id")
+  studentId Int      @map("student_id")
+  tutorId   Int      @map("tutor_id")
+  rating    Int
+  note      String   @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  tutor   Tutor   @relation(fields: [tutorId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, studentId])
+  @@map("session_feedbacks")
 }

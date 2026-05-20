@@ -21,6 +21,16 @@ export class NotificationController {
         return this.notificationService.getNotifications(req.user.id);
     }
 
+    @Get(':id')
+    async getNotification(
+        @Request() req: any,
+        @Param('id', ParseIntPipe) id: number,
+    ) {
+        const notification = await this.notificationService.getNotification(id, req.user.id);
+        if (!notification) throw new (require("@nestjs/common").NotFoundException)('Notification not found');
+        return notification;
+    }
+
     @Patch(':id/read')
     async markAsRead(
         @Request() req: any,
