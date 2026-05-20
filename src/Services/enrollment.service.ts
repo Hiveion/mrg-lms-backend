@@ -243,4 +243,22 @@ export class EnrollmentService {
             return deletedEnrollment;
         });
     }
+
+    async toggleRecordingAccess(enrollmentId: number, enabled: boolean) {
+        return this.prisma.enrollment.update({
+            where: { id: enrollmentId },
+            data: { recordingAccess: enabled },
+            select: {
+                id: true,
+                recordingAccess: true,
+                student: {
+                    select: {
+                        user: {
+                            select: { firstName: true, lastName: true, email: true }
+                        }
+                    }
+                }
+            },
+        });
+    }
 }

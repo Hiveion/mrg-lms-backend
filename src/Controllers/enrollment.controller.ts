@@ -2,6 +2,10 @@ import { Controller, Get, Post, Body, Patch, Param, Delete, ParseIntPipe, UseGua
 import { EnrollmentService } from '../Services/enrollment.service';
 import { CreateEnrollmentDto, UpdateEnrollmentDto, UpdateAssignedPriceDto } from '../DTOs/enrollment.dto';
 import { AuthGuard } from '@nestjs/passport';
+import { ToggleRecordingAccessDto } from '../DTOs/enrollment.dto';
+import { UserRole } from '@prisma/client';
+import { ForbiddenException } from '@nestjs/common';
+
 
 @Controller('enrollments')
 export class EnrollmentController {
@@ -47,5 +51,18 @@ export class EnrollmentController {
     @Delete(':id')
     remove(@Param('id', ParseIntPipe) id: number) {
         return this.enrollmentService.remove(id);
+    }
+
+    @UseGuards(AuthGuard('jwt'))
+    @Patch(':id/recording-access')
+    async toggleRecordingAccess(
+        @Param('id', ParseIntPipe) id: number,
+        @Body() body: ToggleRecordingAccessDto, 
+        @Request() req: any,
+    ) {
+        if (req.user.userType !== UserRole.ADMIN && req.user.userType !== UserRole.COORDINATOR) {
+            throw new ForbiddenException('Only admins can toggle recording access');
+        }
+        return this.enrollmentService.toggleRecordingAccess(id, body.enabled);
     }
 }

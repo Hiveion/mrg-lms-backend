@@ -1,4 +1,4 @@
-import { IsInt, IsNotEmpty, IsOptional, IsEnum, IsNumber, Min, IsString } from 'class-validator';
+import { IsInt, IsNotEmpty, IsOptional, IsEnum, IsNumber, Min, IsString, IsBoolean } from 'class-validator';
 import { EnrollmentStatus } from '@prisma/client';
 
 export class CreateEnrollmentDto {
@@ -35,6 +35,9 @@ export class UpdateEnrollmentDto {
 
     @IsOptional()
     confirmationDate?: Date;
+
+    @IsOptional()                   
+    recordingAccess?: boolean;  
 }
 
 export class UpdateAssignedPriceDto {
@@ -42,4 +45,10 @@ export class UpdateAssignedPriceDto {
     @IsNotEmpty()
     @Min(0)
     assignedPrice: number;
+}
+
+export class ToggleRecordingAccessDto {
+    @IsBoolean()
+    @IsNotEmpty()
+    enabled: boolean;
 }
