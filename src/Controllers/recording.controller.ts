@@ -1,4 +1,4 @@
-import { Controller, Get, Param, ParseIntPipe, UseGuards, Request, ForbiddenException, Res } from '@nestjs/common';
+import { Controller, Get, Param, ParseIntPipe, UseGuards, Request, ForbiddenException, Res, NotFoundException } from '@nestjs/common';
 import { RecordingService } from '../Services/recording.service';
 import { AuthGuard } from '@nestjs/passport';
 import { UserRole } from '@prisma/client';
@@ -48,7 +48,7 @@ export class RecordingController {
     ) {
         await this.googleService.streamRecording(sessionId, req.user, res, req);
     }
-    
+
     // Manually trigger recording fetch — original working version
     @Get('fetch/:sessionId')
     async fetchRecording(
@@ -66,5 +66,19 @@ export class RecordingController {
     ) {
         const result = await this.googleService.fetchAndSaveTranscript(sessionId);
         return { result };
+    }
+
+    // Get transcript content as plain text
+    @UseGuards(AuthGuard('jwt'))
+    @Get('transcript/:sessionId')
+    async getTranscriptContent(
+        @Param('sessionId', ParseIntPipe) sessionId: number,
+        @Request() req: any,
+    ) {
+        const hasAccess = await this.recordingService.authorizeAccess(sessionId, req.user.id, req.user.userType);
+        if (!hasAccess) throw new ForbiddenException('You do not have access to this transcript');
+        const content = await this.googleService.getTranscriptContent(sessionId);
+        if (!content) throw new NotFoundException('Transcript not available');
+        return { content };
     }
 }

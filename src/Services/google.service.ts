@@ -512,4 +512,44 @@ export class GoogleService {
         });
         return null;
     }
+
+    async getTranscriptContent(sessionId: number): Promise<string | null> {
+    const session = await this.prisma.session.findUnique({
+        where: { id: sessionId },
+        include: {
+            class: {
+                include: {
+                    tutor: { include: { user: true } }
+                }
+            }
+        }
+    });
+
+    if (!session?.transcriptFileId) return null;
+
+    const user = session.class.tutor?.user?.googleRefreshToken
+        ? session.class.tutor.user
+        : await this.prisma.user.findFirst({ where: { NOT: { googleRefreshToken: null } } });
+
+    if (!user) return null;
+
+    this.oauth2Client.setCredentials({
+        refresh_token: user.googleRefreshToken,
+        access_token: user.googleAccessToken,
+    });
+
+    const drive = google.drive({ version: 'v3', auth: this.oauth2Client });
+
+    try {
+        const res = await drive.files.export(
+            { fileId: session.transcriptFileId, mimeType: 'text/plain' },
+            { responseType: 'text' }
+        );
+
+        return res.data as string;
+    } catch (error: any) {
+        this.logger.error(`Failed to fetch transcript content: ${error.message}`);
+        return null;
+    }
+}
 }
