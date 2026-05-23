@@ -19,9 +19,10 @@ import { NotificationModule } from './Modules/notification.module';
 import { InvoiceModule } from './Modules/invoice.module';
 import { DiscussionModule } from './Modules/discussion.module';
 import { RecordingModule } from './Modules/recording.module';
+import { GoogleModule } from './Modules/google.module';
 
 @Module({
-  imports: [DatabaseModule, AuthModule, UsersModule, SubjectModule, ClassModule, SessionModule, EnrollmentModule, HomeworkModule, RatingModule, AdminModule, MailModule, SchedulingModule, RescheduleModule, NotificationModule, InvoiceModule, DiscussionModule, RecordingModule],
+  imports: [DatabaseModule, AuthModule, UsersModule, SubjectModule, ClassModule, SessionModule, EnrollmentModule, HomeworkModule, RatingModule, AdminModule, MailModule, SchedulingModule, RescheduleModule, NotificationModule, InvoiceModule, DiscussionModule, RecordingModule, GoogleModule],
   controllers: [AppController],
   providers: [AppService],
 })

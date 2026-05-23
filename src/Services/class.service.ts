@@ -67,6 +67,9 @@ export class ClassService {
                             user: true,
                         },
                     },
+                    schedules: {
+                        orderBy: { day: 'asc' },
+                    },
                 },
             });
         }
@@ -85,6 +88,9 @@ export class ClassService {
                     include: {
                         user: true,
                     },
+                },
+                schedules: {
+                    orderBy: { day: 'asc' },
                 },
             },
         });

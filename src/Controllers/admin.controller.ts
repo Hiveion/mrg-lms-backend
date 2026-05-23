@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Body, UseGuards, Request, Param, ParseIntPipe, Query } from '@nestjs/common';
+import { Controller, Post, Get, Patch, Delete, Body, UseGuards, Request, Param, ParseIntPipe, Query } from '@nestjs/common';
 import { AdminService } from '../Services/admin.service';
 import { CreateUserByAdminDto, InviteUserDto, AssignClassDto } from '../DTOs/admin.dto';
 import { AuthGuard } from '@nestjs/passport';
@@ -48,5 +48,34 @@ export class AdminController {
     @Post('reject-user/:id')
     async rejectUser(@Param('id', ParseIntPipe) id: number, @Body('reason') reason?: string) {
         return this.adminService.rejectUser(id, reason);
+    }
+
+    @Post('announcement')
+    async sendAnnouncement(
+        @Body('title') title: string,
+        @Body('message') message: string,
+    ) {
+        if (!title || !message) {
+            throw new (require("@nestjs/common").BadRequestException)('Title and message are required');
+        }
+        return this.adminService.sendAnnouncementToAllUsers(title, message);
+    }
+
+    @Delete('announcement/:id')
+    async deleteAnnouncement(
+        @Param('id', ParseIntPipe) id: number,
+    ) {
+        return this.adminService.deleteAnnouncement(id);
+    }
+
+    @Patch('announcement/:id')
+    async updateAnnouncement(
+        @Param('id', ParseIntPipe) id: number,
+        @Body() body: { title: string; message: string },
+    ) {
+        if (!body.title || !body.message) {
+            throw new (require("@nestjs/common").BadRequestException)('Title and message are required');
+        }
+        return this.adminService.updateAnnouncement(id, body.title, body.message);
     }
 }
