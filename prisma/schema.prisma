@@ -123,11 +123,12 @@ model User {
   coordinatorProfile Coordinator?
   ratingLikes        RatingLike[]
   ratings            Rating[]
-  notifications      Notification[]
   discussionThreads  DiscussionThread[]
   discussionReplies  DiscussionReply[]
   discussionLikes    DiscussionLike[]
   replyLikes         ReplyLike[]
+  notifications      Notification[]
+  payments           Payment[]
 
   @@map("users")
 }
@@ -164,6 +165,7 @@ model Student {
   homeworkSubmissions HomeworkSubmission[]
   availabilities      StudentAvailability[]
   rescheduleRequests  RescheduleRequest[]
+  invoices            Invoice[]
   sessionFeedbacks    SessionFeedback[]
 
   @@map("students")
@@ -234,13 +236,15 @@ model Class {
   createdAt           DateTime @default(now()) @map("created_at")
   updatedAt           DateTime @updatedAt @map("updated_at")
 
-  subject           Subject            @relation(fields: [subjectId], references: [id])
-  tutor             Tutor              @relation(fields: [tutorId], references: [id])
-  sessions          Session[]
-  schedules         ClassSchedule[]
-  enrollments       Enrollment[]
-  homeworks         Homework[]
+  subject    Subject      @relation(fields: [subjectId], references: [id])
+  tutor      Tutor        @relation(fields: [tutorId], references: [id])
+  sessions   Session[]
+  schedules  ClassSchedule[]
+  enrollments Enrollment[]
+  homeworks  Homework[]
   discussionThreads DiscussionThread[]
+  invoiceItems InvoiceItem[]
+  recordings  Recording[]
 
   @@map("classes")
 }
@@ -472,6 +476,70 @@ model RescheduleRequest {
   @@map("reschedule_requests")
 }
 
+enum DiscussionType {
+  DISCUSSION
+  QUESTION
+}
+
+model DiscussionThread {
+  id        Int            @id @default(autoincrement()) @map("thread_id")
+  classId   Int            @map("class_id")
+  type      DiscussionType @default(DISCUSSION)
+  title     String
+  body      String         @db.Text
+  authorId  Int            @map("author_id")
+  resolved  Boolean        @default(false)
+  pinned    Boolean        @default(false)
+  tags      String[]
+  createdAt DateTime       @default(now()) @map("created_at")
+  updatedAt DateTime       @updatedAt @map("updated_at")
+
+  class     Class          @relation(fields: [classId], references: [id], onDelete: Cascade)
+  author    User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  replies   DiscussionReply[]
+  likes     DiscussionLike[]
+
+  @@map("discussion_threads")
+}
+
+model DiscussionReply {
+  id        Int      @id @default(autoincrement()) @map("reply_id")
+  threadId  Int      @map("thread_id")
+  authorId  Int      @map("author_id")
+  content   String   @db.Text
+  isAnswer  Boolean  @default(false) @map("is_answer")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  thread    DiscussionThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  author    User             @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  likes     ReplyLike[]
+
+  @@map("discussion_replies")
+}
+
+model DiscussionLike {
+  userId    Int @map("user_id")
+  threadId  Int @map("thread_id")
+
+  user   User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  thread DiscussionThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+
+  @@id([userId, threadId])
+  @@map("discussion_likes")
+}
+
+model ReplyLike {
+  userId  Int @map("user_id")
+  replyId Int @map("reply_id")
+
+  user  User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reply DiscussionReply @relation(fields: [replyId], references: [id], onDelete: Cascade)
+
+  @@id([userId, replyId])
+  @@map("reply_likes")
+}
+
 enum NotificationType {
   ANNOUNCEMENT
   SYSTEM
@@ -496,6 +564,80 @@ model Notification {
 
   @@map("notifications")
 }
+
+// Payment Enums
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+}
+
+enum PaymentMethod {
+  PAYHERE
+  BANK_TRANSFER
+}
+
+model Invoice {
+  id        Int           @id @default(autoincrement()) @map("invoice_id")
+  studentId Int           @map("student_id")
+  month     String        // e.g., "2024-12"
+  subtotal          Float         @default(0.0)
+  discount          Float         @default(0.0)
+  additionalPayment Float         @default(0.0) @map("additional_payment")
+  total             Float         @default(0.0)
+  status    InvoiceStatus @default(DRAFT)
+  dueDate   DateTime      @map("due_date")
+  paidDate  DateTime?     @map("paid_date")
+  createdAt DateTime      @default(now()) @map("created_at")
+  updatedAt DateTime      @updatedAt @map("updated_at")
+
+  student  Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  items    InvoiceItem[]
+  payments Payment[]
+
+  @@map("invoices")
+}
+
+model InvoiceItem {
+  id          Int     @id @default(autoincrement()) @map("item_id")
+  invoiceId   Int     @map("invoice_id")
+  classId     Int     @map("class_id")
+  description String?
+  amount      Float   @default(0.0)
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  class   Class   @relation(fields: [classId], references: [id])
+
+  @@map("invoice_items")
+}
+
+model Payment {
+  id          Int           @id @default(autoincrement()) @map("payment_id")
+  invoiceId   Int?          @map("invoice_id")
+  amount      Float
+  method      PaymentMethod @default(PAYHERE)
+  status      PaymentStatus @default(PENDING)
+  reference   String?
+  proofUrl    String?       @map("proof_url")
+  notes       String?
+  paidById    Int           @map("paid_by_id")
+  processedAt DateTime?     @map("processed_at")
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+
+  invoice Invoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  paidBy  User     @relation(fields: [paidById], references: [id])
+
+  @@map("payments")
+}
+
 
 model DiscussionThread {
   id        Int            @id @default(autoincrement()) @map("thread_id")
