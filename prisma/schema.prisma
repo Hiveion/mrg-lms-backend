@@ -159,6 +159,9 @@ model Student {
 
   user                User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId              Int                   @unique @map("user_id")
+
+  currency    String   @default("MVR") @map("currency")
+
   parents             ParentStudent[]
   enrollments         Enrollment[]
   homeworkSubmissions HomeworkSubmission[]
