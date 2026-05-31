@@ -1,5 +1,5 @@
 
-import { PrismaClient, UserRole, UserStatus, HomeworkType, DeadlineType, QuestionType, SubmissionStatus, SessionStatus, EnrollmentStatus, Subject, Class, DiscussionType, NotificationType } from '@prisma/client';
+import { PrismaClient, UserRole, UserStatus, HomeworkType, DeadlineType, QuestionType, SubmissionStatus, SessionStatus, EnrollmentStatus, Subject, Class, SessionRecordingStatus, DiscussionType, NotificationType } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
@@ -343,7 +343,7 @@ async function main() {
       });
     }
 
-
+  
   }
 
   // 7. Homeworks for each class

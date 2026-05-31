@@ -16,13 +16,14 @@ import { MailModule } from './Modules/mail.module';
 import { SchedulingModule } from './Modules/scheduling.module';
 import { RescheduleModule } from './Modules/reschedule.module';
 import { NotificationModule } from './Modules/notification.module';
+import { InvoiceModule } from './Modules/invoice.module';
 import { DiscussionModule } from './Modules/discussion.module';
 import { RecordingModule } from './Modules/recording.module';
 import { GoogleModule } from './Modules/google.module';
 import { ExchangeRateModule } from './Modules/exchange-rate.module';
 
 @Module({
-  imports: [DatabaseModule, ExchangeRateModule, AuthModule, UsersModule, SubjectModule, ClassModule, SessionModule, EnrollmentModule, HomeworkModule, RatingModule, AdminModule, MailModule, SchedulingModule, RescheduleModule, NotificationModule, DiscussionModule, RecordingModule, GoogleModule],
+  imports: [DatabaseModule, ExchangeRateModule, AuthModule, UsersModule, SubjectModule, ClassModule, SessionModule, EnrollmentModule, HomeworkModule, RatingModule, AdminModule, MailModule, SchedulingModule, RescheduleModule, NotificationModule, InvoiceModule, DiscussionModule, RecordingModule, GoogleModule],
   controllers: [AppController],
   providers: [AppService],
 })
