@@ -1,5 +1,5 @@
 
-import { PrismaClient, UserRole, UserStatus, HomeworkType, DeadlineType, QuestionType, SubmissionStatus, SessionStatus, EnrollmentStatus, Subject, Class, RecordingStatus, DiscussionType, NotificationType } from '@prisma/client';
+import { PrismaClient, UserRole, UserStatus, HomeworkType, DeadlineType, QuestionType, SubmissionStatus, SessionStatus, EnrollmentStatus, Subject, Class, SessionRecordingStatus, DiscussionType, NotificationType } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
@@ -13,7 +13,6 @@ async function main() {
   await prisma.discussionReply.deleteMany();
   await prisma.discussionThread.deleteMany();
   await prisma.notification.deleteMany();
-  await prisma.recording.deleteMany();
   await prisma.ratingLike.deleteMany();
   await prisma.rating.deleteMany();
   await prisma.submissionAnswer.deleteMany();
@@ -344,36 +343,7 @@ async function main() {
       });
     }
 
-    // Create a recording for completed sessions
-    if (status === SessionStatus.COMPLETED) {
-      // Create some variations for testing statuses
-      let recordingStatus: RecordingStatus = RecordingStatus.AVAILABLE;
-      let expiresAt = new Date(today);
-
-      if (i === 1) { // Second class (Quantum Mechanics)
-        recordingStatus = RecordingStatus.AVAILABLE;
-        expiresAt.setDate(today.getDate() + 10);
-      } else if (i === 5) { // Sixth class (Climate Change)
-        recordingStatus = RecordingStatus.EXPIRING_SOON;
-        expiresAt.setDate(today.getDate() + 2);
-      } else if (i === 8) { // Ninth class (International Trade)
-        recordingStatus = RecordingStatus.EXPIRED;
-        expiresAt.setDate(today.getDate() - 2);
-      }
-
-      await prisma.recording.create({
-        data: {
-          sessionId: session1.id,
-          classId: classItem.id,
-          videoUrl: `https://recorded-session-${session1.id}`,
-          duration: '1h 15m',
-          fileSize: '520 MB',
-          status: recordingStatus,
-          expiresAt: expiresAt,
-          viewCount: Math.floor(Math.random() * 50),
-        },
-      });
-    }
+  
   }
   console.log('Recordings seeded.');
 
