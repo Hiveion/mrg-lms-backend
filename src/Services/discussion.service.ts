@@ -136,13 +136,13 @@ export class DiscussionService {
     async toggleThreadLike(userId: number, threadId: number) {
         const existingLike = await this.prisma.discussionLike.findUnique({
             where: {
-                threadId_userId: { threadId, userId }
+                userId_threadId: { threadId, userId }
             }
         });
 
         if (existingLike) {
             await this.prisma.discussionLike.delete({
-                where: { id: existingLike.id }
+                where: { userId_threadId: { threadId, userId } }
             });
             return { liked: false };
         } else {
@@ -156,13 +156,13 @@ export class DiscussionService {
     async toggleReplyLike(userId: number, replyId: number) {
         const existingLike = await this.prisma.replyLike.findUnique({
             where: {
-                replyId_userId: { replyId, userId }
+                userId_replyId: { replyId, userId }
             }
         });
 
         if (existingLike) {
             await this.prisma.replyLike.delete({
-                where: { id: existingLike.id }
+                where: { userId_replyId: { replyId, userId } }
             });
             return { liked: false };
         } else {
