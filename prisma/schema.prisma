@@ -347,6 +347,8 @@ model Enrollment {
   confirmationDate DateTime?        @map("confirmation_date")
   createdAt        DateTime         @default(now()) @map("created_at")
   updatedAt        DateTime         @updatedAt @map("updated_at")
+  
+  recordingAccess Boolean @default(false) @map("recording_access")
 
   student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
   class   Class   @relation(fields: [classId], references: [id], onDelete: Cascade)

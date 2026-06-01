@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../Database/prisma.service';
 import { UserRole, SessionRecordingStatus } from '@prisma/client';
 
@@ -17,9 +17,7 @@ export class RecordingService {
                 class: {
                     include: {
                         subject: true,
-                        tutor: {
-                            include: { user: true }
-                        }
+                        tutor: { include: { user: true } }
                     }
                 }
             },
@@ -33,17 +31,13 @@ export class RecordingService {
             where: {
                 recordingStatus: SessionRecordingStatus.SAVED,
                 recordingUrl: { not: null },
-                class: {
-                    tutor: { userId }
-                }
+                class: { tutor: { userId } }
             },
             include: {
                 class: {
                     include: {
                         subject: true,
-                        tutor: {
-                            include: { user: true }
-                        }
+                        tutor: { include: { user: true } }
                     }
                 }
             },
@@ -51,7 +45,7 @@ export class RecordingService {
         });
     }
 
-    // Get recordings for classes student is enrolled in
+    // Get recordings for classes student is enrolled in WITH recording access
     async findByStudent(userId: number) {
         return this.prisma.session.findMany({
             where: {
@@ -60,7 +54,8 @@ export class RecordingService {
                 class: {
                     enrollments: {
                         some: {
-                            student: { userId }
+                            student: { userId },
+                            recordingAccess: true,  
                         }
                     }
                 }
@@ -69,9 +64,7 @@ export class RecordingService {
                 class: {
                     include: {
                         subject: true,
-                        tutor: {
-                            include: { user: true }
-                        }
+                        tutor: { include: { user: true } }
                     }
                 }
             },
@@ -87,9 +80,7 @@ export class RecordingService {
                 class: {
                     include: {
                         subject: true,
-                        tutor: {
-                            include: { user: true }
-                        }
+                        tutor: { include: { user: true } }
                     }
                 }
             }
@@ -111,9 +102,7 @@ export class RecordingService {
                 class: {
                     include: {
                         tutor: true,
-                        enrollments: {
-                            include: { student: true }
-                        }
+                        enrollments: true,  
                     }
                 }
             }
@@ -126,7 +115,16 @@ export class RecordingService {
         }
 
         if (role === UserRole.STUDENT) {
-            return session.class.enrollments.some(e => e.student.userId === userId);
+            // Find the student's enrollment and check recordingAccess
+            const studentProfile = await this.prisma.student.findFirst({
+                where: { userId },
+            });
+
+            if (!studentProfile) return false;
+
+            return session.class.enrollments.some(
+                e => e.studentId === studentProfile.id && e.recordingAccess === true
+            );
         }
 
         return false;
