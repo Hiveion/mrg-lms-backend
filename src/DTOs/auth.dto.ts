@@ -54,6 +54,11 @@ export class RegisterDto {
     @IsOptional()
     grade?: string;
 
+    @ValidateIf((o) => o.userType === UserRole.STUDENT)
+    @IsString()
+    @IsOptional()
+    currency?: string;
+
     // Parent specific fields
     @ValidateIf((o) => o.userType === UserRole.PARENT)
     @IsString()

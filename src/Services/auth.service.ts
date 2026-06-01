@@ -94,7 +94,7 @@ export class AuthService {
             if (registerDto.userType === UserRole.TUTOR) {
                 await this.prisma.tutor.create({ data: { userId: user.id, bio: registerDto.bio, qualifications: registerDto.qualifications || [] } });
             } else if (registerDto.userType === UserRole.STUDENT) {
-                await this.prisma.student.create({ data: { userId: user.id, grade: registerDto.grade } });
+                await this.prisma.student.create({ data: { userId: user.id, grade: registerDto.grade, currency: registerDto.currency || 'MVR' } });
             } else if (registerDto.userType === UserRole.PARENT) {
                 await this.prisma.parent.create({ data: { userId: user.id, occupation: registerDto.occupation, numberOfChildren: registerDto.numberOfChildren || 0 } });
             } else if (registerDto.userType === UserRole.COORDINATOR) {
@@ -121,6 +121,7 @@ export class AuthService {
                 studentProfile: registerDto.userType === UserRole.STUDENT ? {
                     create: {
                         grade: registerDto.grade,
+                        currency: registerDto.currency || 'MVR',
                     }
                 } : undefined,
                 parentProfile: registerDto.userType === UserRole.PARENT ? {
@@ -227,6 +228,7 @@ export class AuthService {
             studentProfile: completeDto.userType === UserRole.STUDENT ? {
                 create: {
                     grade: completeDto.grade,
+                    currency: completeDto.currency || 'MVR',
                 }
             } : undefined,
             parentProfile: completeDto.userType === UserRole.PARENT ? {

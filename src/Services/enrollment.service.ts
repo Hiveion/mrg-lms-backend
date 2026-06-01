@@ -1,11 +1,16 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../Database/prisma.service';
 import { CreateEnrollmentDto, UpdateEnrollmentDto, UpdateAssignedPriceDto } from '../DTOs/enrollment.dto';
-import { EnrollmentStatus } from '@prisma/client';
+import { EnrollmentStatus, UserRole } from '@prisma/client';
+import { ExchangeRateService } from './exchange-rate.service';
+import { ClassFeeConverter } from '../Utils/class-fee-converter';
 
 @Injectable()
 export class EnrollmentService {
-    constructor(private prisma: PrismaService) { }
+    constructor(
+        private prisma: PrismaService,
+        private exchangeRateService: ExchangeRateService,
+    ) { }
 
     async create(createEnrollmentDto: CreateEnrollmentDto) {
         // Check if student exists
@@ -159,6 +164,38 @@ export class EnrollmentService {
                 },
             },
         });
+    }
+
+    /**
+     * Find enrollments for a student with prices converted to student's currency
+     * @param userId User ID of the student
+     * @param userRole User role
+     */
+    async findByStudentUserIdForStudent(userId: number, userRole: string | UserRole) {
+        const enrollments = await this.findByStudentUserId(userId);
+
+        // Only convert if requesting as a student
+        if (userRole === UserRole.STUDENT) {
+            // Get student's preferred currency
+            const student = await this.prisma.student.findFirst({
+                where: { user: { id: userId } },
+            });
+
+            const studentCurrency = student?.currency || 'USD';
+
+            // Convert prices for each enrollment
+            return Promise.all(
+                enrollments.map((enrollment) =>
+                    ClassFeeConverter.convertEnrollmentPriceForStudent(
+                        enrollment,
+                        studentCurrency,
+                        this.exchangeRateService
+                    )
+                )
+            );
+        }
+
+        return enrollments;
     }
 
     async findNextSessions(userId: number) {

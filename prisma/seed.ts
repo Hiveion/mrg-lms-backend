@@ -345,7 +345,6 @@ async function main() {
 
   
   }
-  console.log('Recordings seeded.');
 
   // 7. Homeworks for each class
   const allHomeworks: any[] = [];

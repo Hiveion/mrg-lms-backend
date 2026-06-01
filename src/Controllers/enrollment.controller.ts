@@ -14,6 +14,14 @@ export class EnrollmentController {
     @UseGuards(AuthGuard('jwt'))
     @Get('my-enrollments')
     findMyEnrollments(@Request() req: any) {
+        // If student, convert prices to their currency
+        if (req.user.userType === UserRole.STUDENT) {
+            return this.enrollmentService.findByStudentUserIdForStudent(
+                req.user.id,
+                req.user.userType
+            );
+        }
+        // For admins/coordinators/tutors, return without conversion
         return this.enrollmentService.findByStudentUserId(req.user.id);
     }
 

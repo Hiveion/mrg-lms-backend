@@ -65,11 +65,12 @@ export class UsersService {
             bio?: string;
             qualifications?: string[];
             grade?: string;
+            currency?: string;
             occupation?: string;
             numberOfChildren?: number;
         }
     ): Promise<User> {
-        const { bio, qualifications, grade, occupation, numberOfChildren, ...userData } = updateData;
+        const { bio, qualifications, grade, currency, occupation, numberOfChildren, ...userData } = updateData;
 
         // Build the update object
         const updateObject: Prisma.UserUpdateInput = {
@@ -93,14 +94,16 @@ export class UsersService {
         }
 
         // Handle student profile update
-        if (updateData.userType === 'STUDENT' && grade !== undefined) {
+        if (updateData.userType === 'STUDENT' && (grade !== undefined || currency !== undefined)) {
             updateObject.studentProfile = {
                 upsert: {
                     create: {
                         grade: grade || '',
+                        currency: currency || 'MVR',
                     },
                     update: {
-                        grade,
+                        ...(grade !== undefined && { grade }),
+                        ...(currency !== undefined && { currency }),
                     },
                 },
             };
