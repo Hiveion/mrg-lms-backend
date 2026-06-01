@@ -43,9 +43,14 @@ export class SessionService {
             throw new BadRequestException('Tutors can only schedule sessions for their own classes');
         }
 
+        const hourlyRate = createSessionDto.type === SessionType.REGULAR 
+            ? classItem.tutorHourlyRate 
+            : (createSessionDto.tutorHourlyRate || classItem.tutorHourlyRate);
+
         const session = await this.prisma.session.create({
             data: {
                 ...createSessionDto,
+                tutorHourlyRate: hourlyRate,
                 dateTime: new Date(createSessionDto.dateTime),
             },
             include: {

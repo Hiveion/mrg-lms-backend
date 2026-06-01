@@ -471,18 +471,18 @@ export class GoogleService {
             try {
                 // Gemini transcripts are saved as Google Docs
                 const response = await drive.files.list({
-                    q: `mimeType='application/vnd.google-apps.document' and name contains 'Transcript' and trashed=false`,
+                    q: `mimeType='application/vnd.google-apps.document' and name contains 'Notes by Gemini' and trashed=false`,
                     fields: 'files(id, name, webViewLink, createdTime)',
                     orderBy: 'createdTime desc',
                     pageSize: 20,
                 });
 
                 const files = response.data.files || [];
-                this.logger.log(`Found ${files.length} transcript doc(s) in ${user.email}'s Drive`);
+                this.logger.log(`Found ${files.length} notes doc(s) in ${user.email}'s Drive`);
 
                 const matched = files.find((file) => {
                     const created = new Date(file.createdTime!);
-                    console.log(`Transcript: ${file.name}, created: ${created}`);
+                    console.log(`Notes Doc: ${file.name}, created: ${created}`);
                     return created >= windowStart && created <= windowEnd;
                 });
 

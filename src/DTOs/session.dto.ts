@@ -34,6 +34,9 @@ export class CreateSessionDto {
     @IsString()
     @IsOptional()
     link?: string;
+
+    @IsOptional()
+    tutorHourlyRate?: number;
 }
 
 export class UpdateSessionDto {
@@ -69,6 +72,9 @@ export class UpdateSessionDto {
     @IsString()
     @IsOptional()
     link?: string;
+
+    @IsOptional()
+    tutorHourlyRate?: number;
 }
 
 export class CreateSessionFeedbackDto {
