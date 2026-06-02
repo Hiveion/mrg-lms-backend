@@ -17,7 +17,7 @@ async function bootstrap() {
     allowedHeaders: 'Content-Type,Authorization',
   });
 
-  const port = process.env.PORT;
+  const port = process.env.PORT || 3001;
   const backendUrl = process.env.BACKEND_URL;
   await app.listen(port!);
   console.log(`Application is running on: ${backendUrl}`);
