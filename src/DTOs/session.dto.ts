@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsInt, IsOptional, IsEnum, IsDateString, IsString, Min } from 'class-validator';
+import { IsNotEmpty, IsInt, IsOptional, IsEnum, IsDateString, IsString, Min, ValidateIf, IsNumber } from 'class-validator';
 import { SessionStatus, SessionType } from '@prisma/client';
 
 export class CreateSessionDto {
@@ -35,8 +35,11 @@ export class CreateSessionDto {
     @IsOptional()
     link?: string;
 
-    @IsOptional()
-    tutorHourlyRate?: number;
+    @ValidateIf(o => o.type === SessionType.EXTRA)
+    @IsNotEmpty()
+    @IsNumber()
+    @Min(0)
+    extraClassRate?: number;
 }
 
 export class UpdateSessionDto {
@@ -73,8 +76,10 @@ export class UpdateSessionDto {
     @IsOptional()
     link?: string;
 
+    @IsNumber()
+    @Min(0)
     @IsOptional()
-    tutorHourlyRate?: number;
+    extraClassRate?: number;
 }
 
 export class CreateSessionFeedbackDto {
