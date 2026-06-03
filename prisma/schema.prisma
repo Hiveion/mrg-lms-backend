@@ -230,6 +230,8 @@ model Class {
   currentStudentCount Int      @default(0) @map("current_student_count")
   maxStudentCount     Int?     @map("max_student_count")
   classFee            Float    @default(0.0) @map("class_fee")
+  tutorHourlyRate      Float?        @map("tutor_hourly_rate")
+  
   createdAt           DateTime @default(now()) @map("created_at")
   updatedAt           DateTime @updatedAt @map("updated_at")
 

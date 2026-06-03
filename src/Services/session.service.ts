@@ -47,6 +47,7 @@ export class SessionService {
             data: {
                 ...createSessionDto,
                 dateTime: new Date(createSessionDto.dateTime),
+                extraClassRate: createSessionDto.type === SessionType.EXTRA ? createSessionDto.extraClassRate : null,
             },
             include: {
                 class: {
@@ -232,11 +233,15 @@ export class SessionService {
             throw new NotFoundException(`Session with ID ${id} not found`);
         }
 
+        const sessionType = updateSessionDto.type || sessionExists.type;
+        const extraClassRate = sessionType === SessionType.EXTRA ? updateSessionDto.extraClassRate : null;
+
         const updatedSession = await this.prisma.session.update({
             where: { id },
             data: {
                 ...updateSessionDto,
                 dateTime: updateSessionDto.dateTime ? new Date(updateSessionDto.dateTime) : undefined,
+                extraClassRate,
             },
             include: {
                 class: {
