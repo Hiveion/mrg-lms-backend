@@ -328,8 +328,6 @@ model Session {
   transcriptFileId     String?   @map("transcript_file_id")
   transcriptStatus     SessionTranscriptStatus? @default(PENDING) @map("transcript_status")
 
-  tutorHourlyRate      Float?        @map("tutor_hourly_rate")
-
   class              Class               @relation(fields: [classId], references: [id], onDelete: Cascade)
   rescheduledSession Session?            @relation("RescheduledSession", fields: [rescheduledSessionId], references: [id])
   nextSessions       Session[]           @relation("RescheduledSession")
