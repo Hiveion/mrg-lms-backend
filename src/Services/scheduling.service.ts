@@ -213,10 +213,12 @@ export class SchedulingService {
             })
             .filter(Boolean);
 
-        return {
+        const result = {
             tutorClasses: tutor.classes,
             matchedStudents,
         };
+        console.log('getMatchedStudentsForTutor returning:', JSON.stringify(result, null, 2));
+        return result;
     }
 
     async getMatchedTutorsForStudent(userId: number) {
