@@ -33,11 +33,13 @@ export class AdminController {
     }
 
     @Post('assign-class')
+    @Roles(UserRole.ADMIN, UserRole.COORDINATOR, UserRole.TUTOR)
     async assignClass(@Body() assignClassDto: AssignClassDto, @Request() req: any) {
         return this.adminService.assignClass(assignClassDto, req.user.id);
     }
 
     @Get('matching-slots')
+    @Roles(UserRole.ADMIN, UserRole.COORDINATOR, UserRole.TUTOR)
     async getMatchingSlots(
         @Query('tutorId') tutorId: string,
         @Query('studentId') studentId: string,
