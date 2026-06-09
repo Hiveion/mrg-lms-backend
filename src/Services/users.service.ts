@@ -205,4 +205,56 @@ export class UsersService {
             }
         });
     }
+
+    async findMyStudents(userId: number) {
+        // First find all students enrolled in any class taught by this tutor.
+        // Include their enrollments for this specific tutor's classes.
+        return this.prisma.student.findMany({
+            where: {
+                enrollments: {
+                    some: {
+                        class: {
+                            tutor: {
+                                userId: userId
+                            }
+                        }
+                    }
+                }
+            },
+            include: {
+                user: {
+                    select: {
+                        id: true,
+                        firstName: true,
+                        lastName: true,
+                        email: true,
+                        profilePicture: true,
+                        phoneNumber: true,
+                        status: true,
+                    },
+                },
+                enrollments: {
+                    where: {
+                        class: {
+                            tutor: {
+                                userId: userId
+                            }
+                        }
+                    },
+                    include: {
+                        class: {
+                            include: {
+                                subject: true
+                            }
+                        }
+                    }
+                }
+            },
+            orderBy: {
+                user: {
+                    firstName: 'asc'
+                }
+            }
+        });
+    }
 }
