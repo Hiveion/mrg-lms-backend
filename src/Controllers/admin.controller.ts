@@ -8,13 +8,18 @@ import { UserRole } from '@prisma/client';
 
 @Controller('admin')
 @UseGuards(AuthGuard('jwt'), RolesGuard)
-@Roles(UserRole.ADMIN)
+@Roles(UserRole.ADMIN, UserRole.COORDINATOR)
 export class AdminController {
     constructor(private readonly adminService: AdminService) { }
 
     @Get('users')
     async getUsers() {
         return this.adminService.findAllUsers();
+    }
+
+    @Get('tutors')
+    async getTutors() {
+        return this.adminService.findAllTutors();
     }
 
     @Post('invite-user')

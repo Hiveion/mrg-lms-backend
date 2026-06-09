@@ -17,6 +17,50 @@ export class AdminService {
         private googleService: GoogleService,
     ) { }
 
+    async findAllTutors() {
+        return this.prisma.tutor.findMany({
+            include: {
+                user: {
+                    select: {
+                        id: true,
+                        firstName: true,
+                        lastName: true,
+                        email: true,
+                        profilePicture: true,
+                        phoneNumber: true,
+                    },
+                },
+                classes: {
+                    where: { isActive: true },
+                    select: {
+                        id: true,
+                        name: true,
+                        grade: true,
+                        classFee: true,
+                        subject: {
+                            select: { name: true },
+                        },
+                    },
+                },
+                ratings: {
+                    select: {
+                        id: true,
+                        overallRating: true,
+                        teachingQuality: true,
+                        communication: true,
+                        punctuality: true,
+                        review: true,
+                        likes: true,
+                        createdAt: true,
+                    },
+                    orderBy: { createdAt: 'desc' },
+                    take: 5,
+                },
+            },
+            orderBy: { averageRating: 'desc' },
+        });
+    }
+
     async inviteUser(inviteUserDto: InviteUserDto) {
         // Enforce GMAIL MUST BE USED
         if (!inviteUserDto.email.toLowerCase().endsWith('@gmail.com')) {
