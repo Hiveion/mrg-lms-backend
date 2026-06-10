@@ -61,6 +61,7 @@ export class UsersService {
             firstName?: string;
             lastName?: string;
             phoneNumber?: string;
+            timezone?: string;
             userType?: UserRole;
             bio?: string;
             qualifications?: string[];

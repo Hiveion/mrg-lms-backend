@@ -109,6 +109,7 @@ model User {
   googleAccessToken    String?    @map("google_access_token")
   googleRefreshToken   String?    @map("google_refresh_token")
   googleTokenExpiry    DateTime?  @map("google_token_expiry")
+  timezone             String?
 
   // Relationships
   tutorProfile       Tutor?

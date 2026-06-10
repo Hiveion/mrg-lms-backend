@@ -42,6 +42,7 @@ async function main() {
       lastName: 'Admin',
       status: UserStatus.ACTIVE,
       userType: UserRole.ADMIN,
+      timezone: 'Asia/Colombo',
     },
   });
 
@@ -54,6 +55,7 @@ async function main() {
       lastName: 'Smith',
       status: UserStatus.ACTIVE,
       userType: UserRole.TUTOR,
+      timezone: 'Asia/Colombo',
       tutorProfile: {
         create: {
           bio: 'Ph.D. in Theoretical Physics with 15 years of teaching experience.',
@@ -74,6 +76,7 @@ async function main() {
       lastName: 'Johnson',
       status: UserStatus.ACTIVE,
       userType: UserRole.STUDENT,
+      timezone: 'Asia/Kuala_Lumpur',
       studentProfile: {
         create: { grade: 'Grade 12' },
       },
@@ -90,6 +93,7 @@ async function main() {
       lastName: 'Martin',
       status: UserStatus.ACTIVE,
       userType: UserRole.STUDENT,
+      timezone: 'Europe/London',
       studentProfile: { create: { grade: 'Grade 11' } },
     },
     include: { studentProfile: true },
@@ -103,6 +107,7 @@ async function main() {
       lastName: 'White',
       status: UserStatus.ACTIVE,
       userType: UserRole.STUDENT,
+      timezone: 'America/New_York',
       studentProfile: { create: { grade: 'Grade 12' } },
     },
     include: { studentProfile: true },

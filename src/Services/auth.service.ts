@@ -40,6 +40,7 @@ export class AuthService {
                 lastName: user.lastName,
                 profilePicture: user.profilePicture,
                 phoneNumber: user.phoneNumber,
+                timezone: user.timezone,
                 userType: user.userType,
                 status: user.status,
                 mustChangePassword: user.mustChangePassword,
