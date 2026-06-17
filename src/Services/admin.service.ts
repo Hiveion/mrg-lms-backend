@@ -8,6 +8,14 @@ import { MailService } from './mail.service';
 import { JwtService } from '@nestjs/jwt';
 import { GoogleService } from './google.service';
 
+const dayToNum: Record<string, number> = {
+    'SUNDAY': 0, 'MONDAY': 1, 'TUESDAY': 2, 'WEDNESDAY': 3, 'THURSDAY': 4, 'FRIDAY': 5, 'SATURDAY': 6
+};
+
+const numToDay: Record<number, string> = {
+    0: 'SUNDAY', 1: 'MONDAY', 2: 'TUESDAY', 3: 'WEDNESDAY', 4: 'THURSDAY', 5: 'FRIDAY', 6: 'SATURDAY'
+};
+
 @Injectable()
 export class AdminService {
     constructor(
@@ -237,13 +245,18 @@ export class AdminService {
             // 3. Generate Sessions (Optional)
             if (createSessions) {
                 const sessionData: any[] = [];
-                const start = startDate ? new Date(startDate) : new Date();
+                let start: Date;
+                if (startDate) {
+                    start = new Date(`${startDate}T00:00:00Z`);
+                } else {
+                    start = new Date();
+                }
 
                 for (let i = 0; i < numberOfWeeks; i++) {
                     for (const slot of schedule) {
-                        const sessionDate = this.getNextOccurrence(start, slot.day, i);
+                        const sessionDate = this.getNextOccurrenceUTC(start, slot.day as WeekDay, i);
                         const [hours, minutes] = slot.startTime.split(':').map(Number);
-                        sessionDate.setHours(hours, minutes, 0, 0);
+                        sessionDate.setUTCHours(hours, minutes, 0, 0);
 
                         sessionData.push({
                             classId: newClass.id,
@@ -263,10 +276,12 @@ export class AdminService {
 
             // 4. Punch the class slot out of the tutor's and students' availability calendars
             for (const slot of schedule) {
-                const classEnd = this.toTimeStr(this.toMinutes(slot.startTime) + slot.duration);
-                await this.subtractFromTutorAvailability(tx, tutorId, slot.day as WeekDay, slot.startTime, classEnd);
-                for (const student of students) {
-                    await this.subtractFromStudentAvailability(tx, student.id, slot.day as WeekDay, slot.startTime, classEnd);
+                const segments = this.getUtcSegments(slot.day as WeekDay, slot.startTime, slot.duration);
+                for (const segment of segments) {
+                    await this.subtractFromTutorAvailability(tx, tutorId, segment.day, segment.start, segment.end);
+                    for (const student of students) {
+                        await this.subtractFromStudentAvailability(tx, student.id, segment.day, segment.start, segment.end);
+                    }
                 }
             }
 
@@ -356,10 +371,7 @@ export class AdminService {
     }
 
     private getNextOccurrence(startDate: Date, targetDay: WeekDay, weekOffset: number): Date {
-        const daysToIndex = {
-            'SUNDAY': 0, 'MONDAY': 1, 'TUESDAY': 2, 'WEDNESDAY': 3, 'THURSDAY': 4, 'FRIDAY': 5, 'SATURDAY': 6
-        };
-        const targetDayNum = daysToIndex[targetDay];
+        const targetDayNum = dayToNum[targetDay];
         const result = new Date(startDate);
         const currentDayNum = result.getDay();
 
@@ -367,6 +379,18 @@ export class AdminService {
         if (diff < 0) diff += 7;
 
         result.setDate(result.getDate() + diff + (weekOffset * 7));
+        return result;
+    }
+
+    private getNextOccurrenceUTC(startDate: Date, targetDay: WeekDay, weekOffset: number): Date {
+        const targetDayNum = dayToNum[targetDay];
+        const result = new Date(startDate.getTime());
+        const currentDayNum = result.getUTCDay();
+
+        let diff = targetDayNum - currentDayNum;
+        if (diff < 0) diff += 7;
+
+        result.setUTCDate(result.getUTCDate() + diff + (weekOffset * 7));
         return result;
     }
 
@@ -383,6 +407,28 @@ export class AdminService {
         return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
     }
 
+    private getUtcSegments(day: WeekDay, startTime: string, duration: number) {
+        const startMins = dayToNum[day] * 1440 + this.toMinutes(startTime);
+        const endMins = startMins + duration;
+
+        const segments: { day: WeekDay; start: string; end: string }[] = [];
+        let cursor = startMins;
+        while (cursor < endMins) {
+            const dayIdx = Math.floor(cursor / 1440) % 7;
+            const dayEnd = (dayIdx + 1) * 1440;
+            const segmentEnd = Math.min(endMins, dayEnd);
+
+            segments.push({
+                day: numToDay[dayIdx] as WeekDay,
+                start: this.toTimeStr(cursor - dayIdx * 1440),
+                end: segmentEnd === dayEnd ? '00:00' : this.toTimeStr(segmentEnd - dayIdx * 1440),
+            });
+
+            cursor = segmentEnd;
+        }
+        return segments;
+    }
+
     /**
      * Overlapping existing slots are deleted and the non-overlapping fragments re-created.
      */
@@ -394,13 +440,13 @@ export class AdminService {
         classEnd: string,
     ): Promise<void> {
         const csMin = this.toMinutes(classStart);
-        const ceMin = this.toMinutes(classEnd);
+        const ceMin = classEnd === '00:00' ? 1440 : this.toMinutes(classEnd);
 
         const all = await tx.tutorAvailability.findMany({ where: { tutorId, day } });
 
         for (const slot of all) {
             const sStart = this.toMinutes(slot.startTime);
-            const sEnd = this.toMinutes(slot.endTime);
+            const sEnd = slot.endTime === '00:00' ? 1440 : this.toMinutes(slot.endTime);
 
             // Skip if no overlap
             if (sEnd <= csMin || sStart >= ceMin) continue;
@@ -421,7 +467,6 @@ export class AdminService {
                     data: { tutorId, day, startTime: classEnd, endTime: slot.endTime },
                 });
             }
-            // If the class slot fully consumes the availability slot, it's just deleted — nothing to re-create.
         }
     }
 
@@ -436,13 +481,13 @@ export class AdminService {
         classEnd: string,
     ): Promise<void> {
         const csMin = this.toMinutes(classStart);
-        const ceMin = this.toMinutes(classEnd);
+        const ceMin = classEnd === '00:00' ? 1440 : this.toMinutes(classEnd);
 
         const all = await tx.studentAvailability.findMany({ where: { studentId, day } });
 
         for (const slot of all) {
             const sStart = this.toMinutes(slot.startTime);
-            const sEnd = this.toMinutes(slot.endTime);
+            const sEnd = slot.endTime === '00:00' ? 1440 : this.toMinutes(slot.endTime);
 
             // Skip if no overlap
             if (sEnd <= csMin || sStart >= ceMin) continue;
