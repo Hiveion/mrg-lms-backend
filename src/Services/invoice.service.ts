@@ -1,11 +1,15 @@
 import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../Database/prisma.service';
-import { InvoiceStatus, EnrollmentStatus } from '@prisma/client';
+import { InvoiceStatus, EnrollmentStatus, NotificationType } from '@prisma/client';
 import { UpdateInvoiceDto, CreateInvoiceDto } from '../DTOs/invoice.dto';
+import { NotificationService } from './notification.service';
 
 @Injectable()
 export class InvoiceService {
-    constructor(private prisma: PrismaService) { }
+    constructor(
+        private prisma: PrismaService,
+        private notificationService: NotificationService,
+    ) { }
 
     /**
      * Automatically generate invoices for all students with active enrollments for a specific month.
@@ -307,5 +311,37 @@ export class InvoiceService {
             },
             orderBy: { dueDate: 'desc' },
         });
+    }
+
+    async sendReminder(id: number) {
+        const invoice = await this.prisma.invoice.findUnique({
+            where: { id },
+            include: {
+                student: {
+                    include: {
+                        user: true,
+                    },
+                },
+            },
+        });
+
+        if (!invoice) {
+            throw new NotFoundException(`Invoice with ID ${id} not found.`);
+        }
+
+        const studentUser = invoice.student?.user;
+        if (!studentUser) {
+            throw new NotFoundException(`Student user for invoice ID ${id} not found.`);
+        }
+
+        // Send a payment reminder notification
+        await this.notificationService.createNotification(
+            studentUser.id,
+            'Overdue Payment Reminder',
+            `You have an overdue payment of LKR ${invoice.total.toLocaleString()} for the invoice of month ${invoice.month}. Please make the payment as soon as possible.`,
+            NotificationType.PAYMENT,
+        );
+
+        return { message: 'Reminder notification sent successfully.' };
     }
 }

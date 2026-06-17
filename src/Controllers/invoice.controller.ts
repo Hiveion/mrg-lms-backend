@@ -103,4 +103,10 @@ export class InvoiceController {
     async deleteInvoice(@Param('id', ParseIntPipe) id: number) {
         return this.invoiceService.deleteInvoice(id);
     }
+
+    @Post(':id/remind')
+    @Roles(UserRole.ADMIN)
+    async sendReminder(@Param('id', ParseIntPipe) id: number) {
+        return this.invoiceService.sendReminder(id);
+    }
 }
