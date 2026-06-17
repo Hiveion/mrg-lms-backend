@@ -3,12 +3,14 @@ import { PrismaService } from '../Database/prisma.service';
 import { InvoiceStatus, EnrollmentStatus, NotificationType } from '@prisma/client';
 import { UpdateInvoiceDto, CreateInvoiceDto } from '../DTOs/invoice.dto';
 import { NotificationService } from './notification.service';
+import { ExchangeRateService } from './exchange-rate.service';
 
 @Injectable()
 export class InvoiceService {
     constructor(
         private prisma: PrismaService,
         private notificationService: NotificationService,
+        private exchangeRateService: ExchangeRateService,
     ) { }
 
     /**
@@ -297,7 +299,7 @@ export class InvoiceService {
 
         const childrenIds = parent.students.map(s => s.studentId);
 
-        return this.prisma.invoice.findMany({
+        const invoices = await this.prisma.invoice.findMany({
             where: {
                 studentId: { in: childrenIds },
             },
@@ -311,6 +313,92 @@ export class InvoiceService {
             },
             orderBy: { dueDate: 'desc' },
         });
+
+        return Promise.all(
+            invoices.map(async (inv) => {
+                const studentCurrency = inv.student?.currency || 'USD';
+                if (studentCurrency === 'USD') {
+                    return { ...inv, currency: 'USD' };
+                }
+
+                const [subtotal, discount, additionalPayment, total] = await Promise.all([
+                    this.exchangeRateService.convertCurrency(inv.subtotal, 'USD', studentCurrency),
+                    this.exchangeRateService.convertCurrency(inv.discount, 'USD', studentCurrency),
+                    this.exchangeRateService.convertCurrency(inv.additionalPayment, 'USD', studentCurrency),
+                    this.exchangeRateService.convertCurrency(inv.total, 'USD', studentCurrency),
+                ]);
+
+                const items = await Promise.all(
+                    (inv.items || []).map(async (item) => {
+                        const amount = await this.exchangeRateService.convertCurrency(item.amount, 'USD', studentCurrency);
+                        return { ...item, amount };
+                    }),
+                );
+
+                return {
+                    ...inv,
+                    subtotal,
+                    discount,
+                    additionalPayment,
+                    total,
+                    items,
+                    currency: studentCurrency,
+                };
+            }),
+        );
+    }
+
+    async findStudentInvoices(studentProfileId: number) {
+        await this.syncOverdueStatus();
+        const invoices = await this.prisma.invoice.findMany({
+            where: { studentId: studentProfileId },
+            include: {
+                student: {
+                    include: {
+                        user: true,
+                    },
+                },
+                items: true,
+            },
+            orderBy: { createdAt: 'desc' },
+        });
+
+        const student = await this.prisma.student.findFirst({
+            where: { id: studentProfileId },
+        });
+        const studentCurrency = student?.currency || 'USD';
+
+        return Promise.all(
+            invoices.map(async (inv) => {
+                if (studentCurrency === 'USD') {
+                    return { ...inv, currency: 'USD' };
+                }
+
+                const [subtotal, discount, additionalPayment, total] = await Promise.all([
+                    this.exchangeRateService.convertCurrency(inv.subtotal, 'USD', studentCurrency),
+                    this.exchangeRateService.convertCurrency(inv.discount, 'USD', studentCurrency),
+                    this.exchangeRateService.convertCurrency(inv.additionalPayment, 'USD', studentCurrency),
+                    this.exchangeRateService.convertCurrency(inv.total, 'USD', studentCurrency),
+                ]);
+
+                const items = await Promise.all(
+                    (inv.items || []).map(async (item) => {
+                        const amount = await this.exchangeRateService.convertCurrency(item.amount, 'USD', studentCurrency);
+                        return { ...item, amount };
+                    }),
+                );
+
+                return {
+                    ...inv,
+                    subtotal,
+                    discount,
+                    additionalPayment,
+                    total,
+                    items,
+                    currency: studentCurrency,
+                };
+            }),
+        );
     }
 
     async sendReminder(id: number) {

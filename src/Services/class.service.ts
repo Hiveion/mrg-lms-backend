@@ -210,4 +210,24 @@ export class ClassService {
 
         return classes;
     }
+
+    async findAllForStudent(studentUserId: number) {
+        const classes = await this.findAll();
+
+        const student = await this.prisma.student.findFirst({
+            where: { user: { id: studentUserId } },
+        });
+
+        const studentCurrency = student?.currency || 'USD';
+
+        return Promise.all(
+            classes.map((classItem) =>
+                ClassFeeConverter.convertClassFeeForStudent(
+                    classItem,
+                    studentCurrency,
+                    this.exchangeRateService
+                )
+            )
+        );
+    }
 }

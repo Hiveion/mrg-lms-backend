@@ -62,7 +62,7 @@ export class InvoiceController {
     @Get('student')
     @Roles(UserRole.STUDENT)
     async findStudentInvoices(@Request() req: any) {
-        return this.invoiceService.findAll(req.user.studentProfile?.id);
+        return this.invoiceService.findStudentInvoices(req.user.studentProfile?.id);
     }
 
     @Get(':id')
