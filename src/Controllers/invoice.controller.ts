@@ -62,7 +62,7 @@ export class InvoiceController {
     @Get('student')
     @Roles(UserRole.STUDENT)
     async findStudentInvoices(@Request() req: any) {
-        return this.invoiceService.findAll(req.user.studentProfile?.id);
+        return this.invoiceService.findStudentInvoices(req.user.studentProfile?.id);
     }
 
     @Get(':id')
@@ -102,5 +102,11 @@ export class InvoiceController {
     @Roles(UserRole.ADMIN)
     async deleteInvoice(@Param('id', ParseIntPipe) id: number) {
         return this.invoiceService.deleteInvoice(id);
+    }
+
+    @Post(':id/remind')
+    @Roles(UserRole.ADMIN)
+    async sendReminder(@Param('id', ParseIntPipe) id: number) {
+        return this.invoiceService.sendReminder(id);
     }
 }

@@ -1,11 +1,17 @@
 import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../Database/prisma.service';
-import { InvoiceStatus, EnrollmentStatus } from '@prisma/client';
+import { InvoiceStatus, EnrollmentStatus, NotificationType } from '@prisma/client';
 import { UpdateInvoiceDto, CreateInvoiceDto } from '../DTOs/invoice.dto';
+import { NotificationService } from './notification.service';
+import { ExchangeRateService } from './exchange-rate.service';
 
 @Injectable()
 export class InvoiceService {
-    constructor(private prisma: PrismaService) { }
+    constructor(
+        private prisma: PrismaService,
+        private notificationService: NotificationService,
+        private exchangeRateService: ExchangeRateService,
+    ) { }
 
     /**
      * Automatically generate invoices for all students with active enrollments for a specific month.
@@ -293,7 +299,7 @@ export class InvoiceService {
 
         const childrenIds = parent.students.map(s => s.studentId);
 
-        return this.prisma.invoice.findMany({
+        const invoices = await this.prisma.invoice.findMany({
             where: {
                 studentId: { in: childrenIds },
             },
@@ -307,5 +313,123 @@ export class InvoiceService {
             },
             orderBy: { dueDate: 'desc' },
         });
+
+        return Promise.all(
+            invoices.map(async (inv) => {
+                const studentCurrency = inv.student?.currency || 'USD';
+                if (studentCurrency === 'USD') {
+                    return { ...inv, currency: 'USD' };
+                }
+
+                const [subtotal, discount, additionalPayment, total] = await Promise.all([
+                    this.exchangeRateService.convertCurrency(inv.subtotal, 'USD', studentCurrency),
+                    this.exchangeRateService.convertCurrency(inv.discount, 'USD', studentCurrency),
+                    this.exchangeRateService.convertCurrency(inv.additionalPayment, 'USD', studentCurrency),
+                    this.exchangeRateService.convertCurrency(inv.total, 'USD', studentCurrency),
+                ]);
+
+                const items = await Promise.all(
+                    (inv.items || []).map(async (item) => {
+                        const amount = await this.exchangeRateService.convertCurrency(item.amount, 'USD', studentCurrency);
+                        return { ...item, amount };
+                    }),
+                );
+
+                return {
+                    ...inv,
+                    subtotal,
+                    discount,
+                    additionalPayment,
+                    total,
+                    items,
+                    currency: studentCurrency,
+                };
+            }),
+        );
+    }
+
+    async findStudentInvoices(studentProfileId: number) {
+        await this.syncOverdueStatus();
+        const invoices = await this.prisma.invoice.findMany({
+            where: { studentId: studentProfileId },
+            include: {
+                student: {
+                    include: {
+                        user: true,
+                    },
+                },
+                items: true,
+            },
+            orderBy: { createdAt: 'desc' },
+        });
+
+        const student = await this.prisma.student.findFirst({
+            where: { id: studentProfileId },
+        });
+        const studentCurrency = student?.currency || 'USD';
+
+        return Promise.all(
+            invoices.map(async (inv) => {
+                if (studentCurrency === 'USD') {
+                    return { ...inv, currency: 'USD' };
+                }
+
+                const [subtotal, discount, additionalPayment, total] = await Promise.all([
+                    this.exchangeRateService.convertCurrency(inv.subtotal, 'USD', studentCurrency),
+                    this.exchangeRateService.convertCurrency(inv.discount, 'USD', studentCurrency),
+                    this.exchangeRateService.convertCurrency(inv.additionalPayment, 'USD', studentCurrency),
+                    this.exchangeRateService.convertCurrency(inv.total, 'USD', studentCurrency),
+                ]);
+
+                const items = await Promise.all(
+                    (inv.items || []).map(async (item) => {
+                        const amount = await this.exchangeRateService.convertCurrency(item.amount, 'USD', studentCurrency);
+                        return { ...item, amount };
+                    }),
+                );
+
+                return {
+                    ...inv,
+                    subtotal,
+                    discount,
+                    additionalPayment,
+                    total,
+                    items,
+                    currency: studentCurrency,
+                };
+            }),
+        );
+    }
+
+    async sendReminder(id: number) {
+        const invoice = await this.prisma.invoice.findUnique({
+            where: { id },
+            include: {
+                student: {
+                    include: {
+                        user: true,
+                    },
+                },
+            },
+        });
+
+        if (!invoice) {
+            throw new NotFoundException(`Invoice with ID ${id} not found.`);
+        }
+
+        const studentUser = invoice.student?.user;
+        if (!studentUser) {
+            throw new NotFoundException(`Student user for invoice ID ${id} not found.`);
+        }
+
+        // Send a payment reminder notification
+        await this.notificationService.createNotification(
+            studentUser.id,
+            'Overdue Payment Reminder',
+            `You have an overdue payment of LKR ${invoice.total.toLocaleString()} for the invoice of month ${invoice.month}. Please make the payment as soon as possible.`,
+            NotificationType.PAYMENT,
+        );
+
+        return { message: 'Reminder notification sent successfully.' };
     }
 }

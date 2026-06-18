@@ -40,6 +40,7 @@ export class AuthService {
                 lastName: user.lastName,
                 profilePicture: user.profilePicture,
                 phoneNumber: user.phoneNumber,
+                timezone: user.timezone,
                 userType: user.userType,
                 status: user.status,
                 mustChangePassword: user.mustChangePassword,
@@ -83,6 +84,7 @@ export class AuthService {
                 firstName: registerDto.firstName,
                 lastName: registerDto.lastName,
                 phoneNumber: registerDto.phoneNumber,
+                timezone: registerDto.timezone,
                 userType: registerDto.userType || existingUser.userType,
                 status: (registerDto.userType === UserRole.TUTOR || registerDto.userType === UserRole.STUDENT)
                     ? UserStatus.PENDING
@@ -108,6 +110,7 @@ export class AuthService {
                 firstName: registerDto.firstName,
                 lastName: registerDto.lastName,
                 phoneNumber: registerDto.phoneNumber,
+                timezone: registerDto.timezone,
                 userType: registerDto.userType,
                 status: (registerDto.userType === UserRole.TUTOR || registerDto.userType === UserRole.STUDENT)
                     ? UserStatus.PENDING
@@ -219,6 +222,7 @@ export class AuthService {
             userType: completeDto.userType,
             status: status,
             phoneNumber: completeDto.phoneNumber,
+            timezone: completeDto.timezone,
             tutorProfile: completeDto.userType === UserRole.TUTOR ? {
                 create: {
                     bio: completeDto.bio,
@@ -312,4 +316,3 @@ export class AuthService {
         return { message: 'Password has been reset successfully' };
     }
 }
-

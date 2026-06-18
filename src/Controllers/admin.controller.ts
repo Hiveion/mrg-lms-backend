@@ -8,13 +8,18 @@ import { UserRole } from '@prisma/client';
 
 @Controller('admin')
 @UseGuards(AuthGuard('jwt'), RolesGuard)
-@Roles(UserRole.ADMIN)
+@Roles(UserRole.ADMIN, UserRole.COORDINATOR)
 export class AdminController {
     constructor(private readonly adminService: AdminService) { }
 
     @Get('users')
     async getUsers() {
         return this.adminService.findAllUsers();
+    }
+
+    @Get('tutors')
+    async getTutors() {
+        return this.adminService.findAllTutors();
     }
 
     @Post('invite-user')
@@ -28,11 +33,13 @@ export class AdminController {
     }
 
     @Post('assign-class')
+    @Roles(UserRole.ADMIN, UserRole.COORDINATOR, UserRole.TUTOR)
     async assignClass(@Body() assignClassDto: AssignClassDto, @Request() req: any) {
         return this.adminService.assignClass(assignClassDto, req.user.id);
     }
 
     @Get('matching-slots')
+    @Roles(UserRole.ADMIN, UserRole.COORDINATOR, UserRole.TUTOR)
     async getMatchingSlots(
         @Query('tutorId') tutorId: string,
         @Query('studentId') studentId: string,

@@ -29,7 +29,11 @@ export class ClassController {
     }
 
     @Get()
-    findAll() {
+    @UseGuards(AuthGuard('jwt'))
+    findAll(@Req() req: any) {
+        if (req.user.userType === UserRole.STUDENT) {
+            return this.classService.findAllForStudent(req.user.id);
+        }
         return this.classService.findAll();
     }
 

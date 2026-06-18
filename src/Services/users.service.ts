@@ -61,6 +61,7 @@ export class UsersService {
             firstName?: string;
             lastName?: string;
             phoneNumber?: string;
+            timezone?: string;
             userType?: UserRole;
             bio?: string;
             qualifications?: string[];
@@ -197,6 +198,58 @@ export class UsersService {
                         phoneNumber: true,
                     },
                 },
+            },
+            orderBy: {
+                user: {
+                    firstName: 'asc'
+                }
+            }
+        });
+    }
+
+    async findMyStudents(userId: number) {
+        // First find all students enrolled in any class taught by this tutor.
+        // Include their enrollments for this specific tutor's classes.
+        return this.prisma.student.findMany({
+            where: {
+                enrollments: {
+                    some: {
+                        class: {
+                            tutor: {
+                                userId: userId
+                            }
+                        }
+                    }
+                }
+            },
+            include: {
+                user: {
+                    select: {
+                        id: true,
+                        firstName: true,
+                        lastName: true,
+                        email: true,
+                        profilePicture: true,
+                        phoneNumber: true,
+                        status: true,
+                    },
+                },
+                enrollments: {
+                    where: {
+                        class: {
+                            tutor: {
+                                userId: userId
+                            }
+                        }
+                    },
+                    include: {
+                        class: {
+                            include: {
+                                subject: true
+                            }
+                        }
+                    }
+                }
             },
             orderBy: {
                 user: {

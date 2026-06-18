@@ -24,6 +24,10 @@ export class UpdateProfileDto {
     @IsOptional()
     phoneNumber?: string;
 
+    @IsString()
+    @IsOptional()
+    timezone?: string;
+
     @IsEnum(UserRole)
     @IsOptional()
     userType?: UserRole;
