@@ -36,6 +36,7 @@ export class AdminService {
                         email: true,
                         profilePicture: true,
                         phoneNumber: true,
+                        timezone: true,
                     },
                 },
                 classes: {

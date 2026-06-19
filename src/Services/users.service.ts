@@ -196,6 +196,7 @@ export class UsersService {
                         email: true,
                         profilePicture: true,
                         phoneNumber: true,
+                        timezone: true,
                     },
                 },
             },
