@@ -133,6 +133,15 @@ export class ClassService {
                 schedules: {
                     orderBy: { day: 'asc' },
                 },
+                enrollments: {
+                    include: {
+                        student: {
+                            include: {
+                                user: true,
+                            },
+                        },
+                    },
+                },
             },
         });
 
