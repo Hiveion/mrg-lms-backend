@@ -369,6 +369,7 @@ export class SessionService {
                         subject: true,
                     },
                 },
+                feedbacks: true,
             },
             orderBy: {
                 dateTime: 'asc',
@@ -680,8 +681,19 @@ export class SessionService {
             data: { rating: averageRating }
         });
 
-        // Set the session status to COMPLETED if not already
-        if (session.status !== SessionStatus.COMPLETED) {
+        // Set the session status to COMPLETED if all active enrolled students have feedback
+        const enrollmentsCount = await this.prisma.enrollment.count({
+            where: {
+                classId: session.classId,
+                status: EnrollmentStatus.ACTIVE
+            }
+        });
+
+        const feedbacksCount = await this.prisma.sessionFeedback.count({
+            where: { sessionId }
+        });
+
+        if (feedbacksCount >= enrollmentsCount && enrollmentsCount > 0 && session.status !== SessionStatus.COMPLETED) {
             await this.prisma.session.update({
                 where: { id: sessionId },
                 data: { status: SessionStatus.COMPLETED }
