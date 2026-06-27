@@ -143,6 +143,7 @@ model Tutor {
   ratings          Rating[]
   availabilities   TutorAvailability[]
   sessionFeedbacks SessionFeedback[]
+  payouts          TutorPayout[]
 
   @@map("tutors")
 }
@@ -244,6 +245,7 @@ model Class {
   homeworks  Homework[]
   discussionThreads DiscussionThread[]
   invoiceItems InvoiceItem[]
+  tutorPayoutItems TutorPayoutItem[]
   @@map("classes")
 }
 
@@ -656,4 +658,49 @@ model SessionFeedback {
 
   @@unique([sessionId, studentId])
   @@map("session_feedbacks")
+}
+
+enum PayoutStatus {
+  PENDING
+  PROCESSING
+  PAID
+  FAILED
+}
+
+model TutorPayout {
+  id                   Int               @id @default(autoincrement()) @map("payout_id")
+  tutorId              Int               @map("tutor_id")
+  month                String            // format "YYYY-MM"
+  amount               Float             @default(0.0)
+  additionalAmount     Float             @default(0.0) @map("additional_amount")
+  discount             Float             @default(0.0)
+  notes                String?           @db.Text
+  slipUrl              String?           @map("slip_url")
+  slipFileId           String?           @map("slip_file_id")
+  status               PayoutStatus      @default(PENDING)
+  transactionReference String?           @map("transaction_reference")
+  createdAt            DateTime          @default(now()) @map("created_at")
+  updatedAt            DateTime          @updatedAt @map("updated_at")
+
+  tutor                Tutor             @relation(fields: [tutorId], references: [id], onDelete: Cascade)
+  items                TutorPayoutItem[]
+
+  @@unique([tutorId, month])
+  @@map("tutor_payouts")
+}
+
+model TutorPayoutItem {
+  id             Int         @id @default(autoincrement()) @map("item_id")
+  payoutId       Int         @map("payout_id")
+  classId        Int         @map("class_id")
+  hoursCount     Float       @map("hours_count")
+  amount         Float       @default(0.0)
+  createdAt      DateTime    @default(now()) @map("created_at")
+  updatedAt      DateTime    @updatedAt @map("updated_at")
+
+  payout         TutorPayout @relation(fields: [payoutId], references: [id], onDelete: Cascade)
+  class          Class       @relation(fields: [classId], references: [id], onDelete: Cascade)
+
+  @@unique([payoutId, classId])
+  @@map("tutor_payout_items")
 }

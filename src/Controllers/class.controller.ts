@@ -38,7 +38,11 @@ export class ClassController {
     }
 
     @Get(':id')
-    findOne(@Param('id', ParseIntPipe) id: number) {
+    @UseGuards(AuthGuard('jwt'))
+    async findOne(@Param('id', ParseIntPipe) id: number, @Req() req: any) {
+        if (req.user.userType === UserRole.STUDENT) {
+            return this.classService.findOneForStudent(id, req.user.id);
+        }
         return this.classService.findOne(id);
     }
 
