@@ -336,6 +336,25 @@ export class SessionService {
                         },
                     },
                 },
+                feedbacks: {
+                    where: {
+                        student: {
+                            userId: userId,
+                        },
+                    },
+                    include: {
+                        tutor: {
+                            include: {
+                                user: {
+                                    select: {
+                                        firstName: true,
+                                        lastName: true,
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
             },
             orderBy: {
                 dateTime: 'asc',
@@ -369,7 +388,20 @@ export class SessionService {
                         subject: true,
                     },
                 },
-                feedbacks: true,
+                feedbacks: {
+                    include: {
+                        student: {
+                            include: {
+                                user: {
+                                    select: {
+                                        firstName: true,
+                                        lastName: true,
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
             },
             orderBy: {
                 dateTime: 'asc',
