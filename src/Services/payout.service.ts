@@ -44,6 +44,47 @@ export class PayoutService {
         });
     }
 
+    async findForTutor(userId: number) {
+        const tutor = await this.prisma.tutor.findUnique({
+            where: { userId },
+        });
+        if (!tutor) {
+            return [];
+        }
+
+        return this.prisma.tutorPayout.findMany({
+            where: { tutorId: tutor.id },
+            include: {
+                tutor: {
+                    include: {
+                        user: {
+                            select: {
+                                id: true,
+                                firstName: true,
+                                lastName: true,
+                                email: true,
+                                timezone: true,
+                            }
+                        }
+                    }
+                },
+                items: {
+                    include: {
+                        class: {
+                            select: {
+                                name: true,
+                                tutorHourlyRate: true,
+                            }
+                        }
+                    }
+                }
+            },
+            orderBy: {
+                createdAt: 'desc',
+            }
+        });
+    }
+
     async previewPayouts(month: string) {
         // Parse month
         const [year, monthStr] = month.split('-').map(Number);

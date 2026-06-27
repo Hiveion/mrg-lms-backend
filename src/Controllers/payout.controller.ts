@@ -43,6 +43,12 @@ export class PayoutController {
         return this.payoutService.findAll(month);
     }
 
+    @Get('my-payouts')
+    @Roles(UserRole.TUTOR, UserRole.ADMIN)
+    async findMyPayouts(@Request() req: any) {
+        return this.payoutService.findForTutor(req.user.id);
+    }
+
     @Patch(':id/status')
     @Roles(UserRole.ADMIN)
     @UseInterceptors(FileInterceptor('file'))
