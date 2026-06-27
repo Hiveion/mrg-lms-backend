@@ -8,13 +8,17 @@ import {
     Query,
     UseGuards,
     ParseIntPipe,
+    Request,
+    UseInterceptors,
+    UploadedFile,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { PayoutService } from '../Services/payout.service';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../Guards/roles.guard';
 import { Roles } from '../Decorators/roles.decorator';
 import { UserRole } from '@prisma/client';
-import { GeneratePayoutsDto, UpdatePayoutStatusDto } from '../DTOs/payout.dto';
+import { GeneratePayoutsDto } from '../DTOs/payout.dto';
 
 @Controller('payouts')
 @UseGuards(AuthGuard('jwt'), RolesGuard)
@@ -41,10 +45,26 @@ export class PayoutController {
 
     @Patch(':id/status')
     @Roles(UserRole.ADMIN)
+    @UseInterceptors(FileInterceptor('file'))
     async updateStatus(
         @Param('id', ParseIntPipe) id: number,
-        @Body() statusDto: UpdatePayoutStatusDto,
+        @Request() req: any,
+        @Body() body: any,
+        @UploadedFile() file?: any
     ) {
-        return this.payoutService.updateStatus(id, statusDto.status, statusDto.transactionReference);
+        console.log('=== PayoutController.updateStatus ===');
+        console.log('body:', body);
+        console.log('file:', file ? { originalname: file.originalname, size: file.size } : 'undefined');
+
+        const additionalAmount = body.additionalAmount ? parseFloat(body.additionalAmount) : undefined;
+        const discount = body.discount ? parseFloat(body.discount) : undefined;
+        return this.payoutService.updateStatus(id, req.user.id, {
+            status: body.status,
+            transactionReference: body.transactionReference,
+            additionalAmount,
+            discount,
+            notes: body.notes,
+            file,
+        });
     }
 }

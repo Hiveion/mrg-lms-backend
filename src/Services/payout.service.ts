@@ -1,10 +1,14 @@
 import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../Database/prisma.service';
 import { PayoutStatus, SessionStatus } from '@prisma/client';
+import { GoogleService } from './google.service';
 
 @Injectable()
 export class PayoutService {
-    constructor(private prisma: PrismaService) { }
+    constructor(
+        private prisma: PrismaService,
+        private googleService: GoogleService
+    ) { }
 
     async findAll(month?: string) {
         return this.prisma.tutorPayout.findMany({
@@ -255,7 +259,21 @@ export class PayoutService {
         };
     }
 
-    async updateStatus(id: number, status: PayoutStatus, transactionReference?: string) {
+    async updateStatus(
+        id: number,
+        adminId: number,
+        updateData: {
+            status: PayoutStatus;
+            transactionReference?: string;
+            additionalAmount?: number;
+            discount?: number;
+            notes?: string;
+            file?: any;
+        }
+    ) {
+        console.log('=== PayoutService.updateStatus ===');
+        console.log('updateData file:', updateData.file ? { originalname: updateData.file.originalname, size: updateData.file.size } : 'undefined');
+
         const payout = await this.prisma.tutorPayout.findUnique({
             where: { id },
         });
@@ -264,11 +282,28 @@ export class PayoutService {
             throw new NotFoundException(`Tutor payout with ID ${id} not found.`);
         }
 
+        let slipUrl = payout.slipUrl;
+        let slipFileId = payout.slipFileId;
+
+        if (updateData.file) {
+            const uploadResult = await this.googleService.uploadFile(adminId, updateData.file);
+            console.log('uploadResult:', uploadResult);
+            if (uploadResult) {
+                slipUrl = uploadResult.webViewLink;
+                slipFileId = uploadResult.fileId;
+            }
+        }
+
         return this.prisma.tutorPayout.update({
             where: { id },
             data: {
-                status,
-                transactionReference: transactionReference !== undefined ? transactionReference : undefined,
+                status: updateData.status,
+                transactionReference: updateData.transactionReference !== undefined ? updateData.transactionReference : undefined,
+                additionalAmount: updateData.additionalAmount !== undefined ? updateData.additionalAmount : undefined,
+                discount: updateData.discount !== undefined ? updateData.discount : undefined,
+                notes: updateData.notes !== undefined ? updateData.notes : undefined,
+                slipUrl,
+                slipFileId,
             },
             include: {
                 tutor: {
