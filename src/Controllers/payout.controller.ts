@@ -24,7 +24,13 @@ export class PayoutController {
     @Post('generate')
     @Roles(UserRole.ADMIN)
     async generatePayouts(@Body() generateDto: GeneratePayoutsDto) {
-        return this.payoutService.generatePayouts(generateDto.month);
+        return this.payoutService.generatePayouts(generateDto.month, generateDto.tutorId);
+    }
+
+    @Get('preview')
+    @Roles(UserRole.ADMIN)
+    async previewPayouts(@Query('month') month: string) {
+        return this.payoutService.previewPayouts(month);
     }
 
     @Get()

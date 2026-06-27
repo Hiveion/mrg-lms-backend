@@ -40,7 +40,7 @@ export class PayoutService {
         });
     }
 
-    async generatePayouts(month: string) {
+    async previewPayouts(month: string) {
         // Parse month
         const [year, monthStr] = month.split('-').map(Number);
         const startDate = new Date(year, monthStr - 1, 1);
@@ -54,6 +54,118 @@ export class PayoutService {
                     gte: startDate,
                     lt: endDate,
                 },
+            },
+            include: {
+                class: {
+                    include: {
+                        tutor: {
+                            include: {
+                                user: {
+                                    select: {
+                                        id: true,
+                                        firstName: true,
+                                        lastName: true,
+                                        email: true,
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+            },
+        });
+
+        if (completedSessions.length === 0) {
+            return [];
+        }
+
+        // Group by tutorId, then classId
+        const tutorMap = new Map<number, Map<number, { sessions: any[], classItem: any }>>();
+
+        for (const session of completedSessions) {
+            const tutorId = session.class.tutorId;
+            const classId = session.classId;
+
+            if (!tutorMap.has(tutorId)) {
+                tutorMap.set(tutorId, new Map());
+            }
+
+            const classMap = tutorMap.get(tutorId)!;
+            if (!classMap.has(classId)) {
+                classMap.set(classId, { sessions: [], classItem: session.class });
+            }
+
+            classMap.get(classId)!.sessions.push(session);
+        }
+
+        // Fetch already generated payouts for this month to filter them out
+        const existingPayouts = await this.prisma.tutorPayout.findMany({
+            where: { month },
+            select: { tutorId: true }
+        });
+        const existingTutorIds = new Set(existingPayouts.map(p => p.tutorId));
+
+        const previews: any[] = [];
+
+        for (const [tutorId, classMap] of tutorMap.entries()) {
+            // If already generated, skip showing in preview
+            if (existingTutorIds.has(tutorId)) {
+                continue;
+            }
+
+            const items: any[] = [];
+            let totalAmount = 0;
+            let tutorInfo: any = null;
+
+            for (const [classId, data] of classMap.entries()) {
+                const totalMinutes = data.sessions.reduce((sum, s) => sum + s.duration, 0);
+                const hoursCount = totalMinutes / 60.0;
+                const hourlyRate = data.classItem.tutorHourlyRate || 0.0;
+                const amount = hoursCount * hourlyRate;
+
+                if (!tutorInfo && data.classItem.tutor) {
+                    tutorInfo = data.classItem.tutor;
+                }
+
+                items.push({
+                    classId,
+                    className: data.classItem.name,
+                    hourlyRate,
+                    hoursCount,
+                    amount,
+                });
+
+                totalAmount += amount;
+            }
+
+            previews.push({
+                tutorId,
+                tutorName: tutorInfo ? `${tutorInfo.user.firstName} ${tutorInfo.user.lastName}` : `Tutor #${tutorId}`,
+                month,
+                amount: totalAmount,
+                status: 'PENDING',
+                items,
+            });
+        }
+
+        return previews;
+    }
+
+    async generatePayouts(month: string, tutorId?: number) {
+        // Parse month
+        const [year, monthStr] = month.split('-').map(Number);
+        const startDate = new Date(year, monthStr - 1, 1);
+        const endDate = new Date(year, monthStr, 1);
+
+        // Fetch completed sessions in this month
+        const completedSessions = await this.prisma.session.findMany({
+            where: {
+                status: SessionStatus.COMPLETED,
+                dateTime: {
+                    gte: startDate,
+                    lt: endDate,
+                },
+                class: tutorId ? { tutorId } : undefined,
             },
             include: {
                 class: true,

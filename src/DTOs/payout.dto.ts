@@ -1,9 +1,13 @@
-import { IsString, IsEnum, IsOptional } from 'class-validator';
+import { IsString, IsEnum, IsOptional, IsNumber } from 'class-validator';
 import { PayoutStatus } from '@prisma/client';
 
 export class GeneratePayoutsDto {
     @IsString()
     month: string; // "YYYY-MM"
+
+    @IsOptional()
+    @IsNumber()
+    tutorId?: number;
 }
 
 export class UpdatePayoutStatusDto {
