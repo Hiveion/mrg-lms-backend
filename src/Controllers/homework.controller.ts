@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Get, Param, ParseIntPipe, UseGuards, Request } from '@nestjs/common';
+import { Controller, Post, Body, Get, Param, ParseIntPipe, UseGuards, Request, ForbiddenException } from '@nestjs/common';
 import { HomeworkService } from '../Services/homework.service';
 import { CreateHomeworkDto, CreateHomeworkSubmissionDto, GradeSubmissionDto } from '../DTOs/homework.dto';
 import { AuthGuard } from '@nestjs/passport';
@@ -49,9 +49,16 @@ export class HomeworkController {
         return this.homeworkService.getMyGradedSubmissions(req.user.id);
     }
 
+    @UseGuards(AuthGuard('jwt'))
+    @Get('classes-for-homework')
+    getClassesForHomework(@Request() req: any) {
+        return this.homeworkService.getClassesForHomework(req.user.id, req.user.userType);
+    }
+
+    @UseGuards(AuthGuard('jwt'))
     @Post()
-    create(@Body() createHomeworkDto: CreateHomeworkDto) {
-        return this.homeworkService.create(createHomeworkDto);
+    create(@Request() req: any, @Body() createHomeworkDto: CreateHomeworkDto) {
+        return this.homeworkService.create(createHomeworkDto, req.user.id, req.user.userType);
     }
 
     @UseGuards(AuthGuard('jwt'))

@@ -1,21 +1,29 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../Database/prisma.service';
 import { CreateHomeworkDto, CreateHomeworkSubmissionDto, GradeSubmissionDto } from '../DTOs/homework.dto';
-import { HomeworkType, SubmissionStatus, EnrollmentStatus } from '@prisma/client';
+import { HomeworkType, SubmissionStatus, EnrollmentStatus, UserRole } from '@prisma/client';
 
 @Injectable()
 export class HomeworkService {
     constructor(private prisma: PrismaService) { }
 
-    async create(createHomeworkDto: CreateHomeworkDto) {
+    async create(createHomeworkDto: CreateHomeworkDto, callerId?: number, callerRole?: string) {
         const { questions, ...homeworkData } = createHomeworkDto;
 
         // Validate class exists
         const classItem = await this.prisma.class.findUnique({
             where: { id: homeworkData.classId },
+            include: { tutor: { select: { userId: true } } },
         });
         if (!classItem) {
             throw new NotFoundException(`Class with ID ${homeworkData.classId} not found`);
+        }
+
+        // Tutors can only create homework for their own classes
+        if (callerRole && callerRole.toUpperCase() === UserRole.TUTOR) {
+            if (classItem.tutor.userId !== callerId) {
+                throw new ForbiddenException('You can only create homework for your own classes');
+            }
         }
 
         // Business Logic Validation
@@ -39,6 +47,55 @@ export class HomeworkService {
                 questions: true,
                 class: true,
             },
+        });
+    }
+
+    async getClassesForHomework(userId: number, userRole: string) {
+        const role = userRole?.toUpperCase();
+
+        // Admins and coordinators can assign homework to any active class
+        if (role === UserRole.ADMIN || role === UserRole.COORDINATOR) {
+            return this.prisma.class.findMany({
+                where: { isActive: true },
+                include: {
+                    subject: true,
+                    tutor: {
+                        include: {
+                            user: {
+                                select: {
+                                    firstName: true,
+                                    lastName: true,
+                                    email: true,
+                                },
+                            },
+                        },
+                    },
+                },
+                orderBy: { name: 'asc' },
+            });
+        }
+
+        // Tutors can only assign homework to their own classes
+        return this.prisma.class.findMany({
+            where: {
+                isActive: true,
+                tutor: { userId },
+            },
+            include: {
+                subject: true,
+                tutor: {
+                    include: {
+                        user: {
+                            select: {
+                                firstName: true,
+                                lastName: true,
+                                email: true,
+                            },
+                        },
+                    },
+                },
+            },
+            orderBy: { name: 'asc' },
         });
     }
 
