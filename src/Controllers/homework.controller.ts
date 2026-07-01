@@ -73,8 +73,21 @@ export class HomeworkController {
         return this.homeworkService.grade(req.user.id, id, gradeDto);
     }
 
+    @UseGuards(AuthGuard('jwt'))
+    @Get('admin-pending-submissions')
+    findAdminPendingSubmissions(@Request() req: any) {
+        return this.homeworkService.findAllPendingSubmissions();
+    }
+
+    @UseGuards(AuthGuard('jwt'))
+    @Get('admin-graded-submissions')
+    findAdminGradedSubmissions(@Request() req: any) {
+        return this.homeworkService.findAllGradedSubmissions();
+    }
+
+    @UseGuards(AuthGuard('jwt'))
     @Get()
-    findAll() {
+    findAll(@Request() req: any) {
         return this.homeworkService.findAll();
     }
 

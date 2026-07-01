@@ -307,6 +307,116 @@ export class HomeworkService {
         });
     }
 
+    async findAllPendingSubmissions() {
+        return this.prisma.homeworkSubmission.findMany({
+            where: {
+                status: {
+                    in: [SubmissionStatus.SUBMITTED, SubmissionStatus.LATE],
+                },
+            },
+            include: {
+                student: {
+                    include: {
+                        user: {
+                            select: {
+                                firstName: true,
+                                lastName: true,
+                                email: true,
+                                profilePicture: true,
+                            },
+                        },
+                    },
+                },
+                homework: {
+                    include: {
+                        class: {
+                            include: {
+                                subject: true,
+                                tutor: {
+                                    select: {
+                                        user: {
+                                            select: {
+                                                firstName: true,
+                                                lastName: true,
+                                            },
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+                answers: {
+                    include: {
+                        question: {
+                            select: {
+                                id: true,
+                                questionText: true,
+                                questionType: true,
+                                marks: true,
+                                correctAnswer: true,
+                            },
+                        },
+                    },
+                },
+            },
+            orderBy: { submittedAt: 'desc' },
+        });
+    }
+
+    async findAllGradedSubmissions() {
+        return this.prisma.homeworkSubmission.findMany({
+            where: { status: SubmissionStatus.GRADED },
+            include: {
+                student: {
+                    include: {
+                        user: {
+                            select: {
+                                firstName: true,
+                                lastName: true,
+                                email: true,
+                                profilePicture: true,
+                            },
+                        },
+                    },
+                },
+                homework: {
+                    include: {
+                        class: {
+                            include: {
+                                subject: true,
+                                tutor: {
+                                    select: {
+                                        user: {
+                                            select: {
+                                                firstName: true,
+                                                lastName: true,
+                                            },
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+                answers: {
+                    include: {
+                        question: {
+                            select: {
+                                id: true,
+                                questionText: true,
+                                questionType: true,
+                                marks: true,
+                                correctAnswer: true,
+                            },
+                        },
+                    },
+                },
+            },
+            orderBy: { updatedAt: 'desc' },
+        });
+    }
+
     async submit(userId: number, submissionDto: CreateHomeworkSubmissionDto) {
         const homework = await this.prisma.homework.findUnique({
             where: { id: submissionDto.homeworkId },
