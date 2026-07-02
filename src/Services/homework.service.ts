@@ -1,21 +1,33 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../Database/prisma.service';
 import { CreateHomeworkDto, CreateHomeworkSubmissionDto, GradeSubmissionDto } from '../DTOs/homework.dto';
-import { HomeworkType, SubmissionStatus, EnrollmentStatus } from '@prisma/client';
+import { HomeworkType, SubmissionStatus, EnrollmentStatus, UserRole } from '@prisma/client';
+import { GoogleService } from './google.service';
 
 @Injectable()
 export class HomeworkService {
-    constructor(private prisma: PrismaService) { }
+    constructor(
+        private prisma: PrismaService,
+        private googleService: GoogleService,
+    ) { }
 
-    async create(createHomeworkDto: CreateHomeworkDto) {
+    async create(createHomeworkDto: CreateHomeworkDto, callerId?: number, callerRole?: string, file?: any) {
         const { questions, ...homeworkData } = createHomeworkDto;
 
         // Validate class exists
         const classItem = await this.prisma.class.findUnique({
             where: { id: homeworkData.classId },
+            include: { tutor: { select: { userId: true } } },
         });
         if (!classItem) {
             throw new NotFoundException(`Class with ID ${homeworkData.classId} not found`);
+        }
+
+        // Tutors can only create homework for their own classes
+        if (callerRole && callerRole.toUpperCase() === UserRole.TUTOR) {
+            if (classItem.tutor.userId !== callerId) {
+                throw new ForbiddenException('You can only create homework for your own classes');
+            }
         }
 
         // Business Logic Validation
@@ -23,13 +35,22 @@ export class HomeworkService {
             throw new BadRequestException('Quiz type homework must have at least one question');
         }
 
-        if (homeworkData.type === HomeworkType.FILE && !homeworkData.fileUrl) {
-            throw new BadRequestException('File type homework must have a file URL');
+        if (homeworkData.type === HomeworkType.FILE && !homeworkData.fileUrl && !file) {
+            throw new BadRequestException('File type homework must have a file URL or file upload');
+        }
+
+        let fileUrl = homeworkData.fileUrl;
+        if (file) {
+            const uploadResult = await this.googleService.uploadFile(callerId || 0, file, 'assignments');
+            if (uploadResult) {
+                fileUrl = uploadResult.webViewLink;
+            }
         }
 
         return this.prisma.homework.create({
             data: {
                 ...homeworkData,
+                fileUrl,
                 deadlineDate: homeworkData.deadlineDate ? new Date(homeworkData.deadlineDate) : null,
                 questions: questions ? {
                     create: questions
@@ -39,6 +60,55 @@ export class HomeworkService {
                 questions: true,
                 class: true,
             },
+        });
+    }
+
+    async getClassesForHomework(userId: number, userRole: string) {
+        const role = userRole?.toUpperCase();
+
+        // Admins and coordinators can assign homework to any active class
+        if (role === UserRole.ADMIN || role === UserRole.COORDINATOR) {
+            return this.prisma.class.findMany({
+                where: { isActive: true },
+                include: {
+                    subject: true,
+                    tutor: {
+                        include: {
+                            user: {
+                                select: {
+                                    firstName: true,
+                                    lastName: true,
+                                    email: true,
+                                },
+                            },
+                        },
+                    },
+                },
+                orderBy: { name: 'asc' },
+            });
+        }
+
+        // Tutors can only assign homework to their own classes
+        return this.prisma.class.findMany({
+            where: {
+                isActive: true,
+                tutor: { userId },
+            },
+            include: {
+                subject: true,
+                tutor: {
+                    include: {
+                        user: {
+                            select: {
+                                firstName: true,
+                                lastName: true,
+                                email: true,
+                            },
+                        },
+                    },
+                },
+            },
+            orderBy: { name: 'asc' },
         });
     }
 
@@ -250,7 +320,117 @@ export class HomeworkService {
         });
     }
 
-    async submit(userId: number, submissionDto: CreateHomeworkSubmissionDto) {
+    async findAllPendingSubmissions() {
+        return this.prisma.homeworkSubmission.findMany({
+            where: {
+                status: {
+                    in: [SubmissionStatus.SUBMITTED, SubmissionStatus.LATE],
+                },
+            },
+            include: {
+                student: {
+                    include: {
+                        user: {
+                            select: {
+                                firstName: true,
+                                lastName: true,
+                                email: true,
+                                profilePicture: true,
+                            },
+                        },
+                    },
+                },
+                homework: {
+                    include: {
+                        class: {
+                            include: {
+                                subject: true,
+                                tutor: {
+                                    select: {
+                                        user: {
+                                            select: {
+                                                firstName: true,
+                                                lastName: true,
+                                            },
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+                answers: {
+                    include: {
+                        question: {
+                            select: {
+                                id: true,
+                                questionText: true,
+                                questionType: true,
+                                marks: true,
+                                correctAnswer: true,
+                            },
+                        },
+                    },
+                },
+            },
+            orderBy: { submittedAt: 'desc' },
+        });
+    }
+
+    async findAllGradedSubmissions() {
+        return this.prisma.homeworkSubmission.findMany({
+            where: { status: SubmissionStatus.GRADED },
+            include: {
+                student: {
+                    include: {
+                        user: {
+                            select: {
+                                firstName: true,
+                                lastName: true,
+                                email: true,
+                                profilePicture: true,
+                            },
+                        },
+                    },
+                },
+                homework: {
+                    include: {
+                        class: {
+                            include: {
+                                subject: true,
+                                tutor: {
+                                    select: {
+                                        user: {
+                                            select: {
+                                                firstName: true,
+                                                lastName: true,
+                                            },
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+                answers: {
+                    include: {
+                        question: {
+                            select: {
+                                id: true,
+                                questionText: true,
+                                questionType: true,
+                                marks: true,
+                                correctAnswer: true,
+                            },
+                        },
+                    },
+                },
+            },
+            orderBy: { updatedAt: 'desc' },
+        });
+    }
+
+    async submit(userId: number, submissionDto: CreateHomeworkSubmissionDto, file?: any) {
         const homework = await this.prisma.homework.findUnique({
             where: { id: submissionDto.homeworkId },
         });
@@ -296,12 +476,20 @@ export class HomeworkService {
             }
         }
 
+        let submissionFileUrl = submissionDto.submissionFileUrl;
+        if (file) {
+            const uploadResult = await this.googleService.uploadFile(userId, file, 'submissions');
+            if (uploadResult) {
+                submissionFileUrl = uploadResult.webViewLink;
+            }
+        }
+
         return this.prisma.homeworkSubmission.create({
             data: {
                 homeworkId: homework.id,
                 studentId: student.id,
                 status,
-                submissionFileUrl: submissionDto.submissionFileUrl,
+                submissionFileUrl,
                 answers: submissionDto.answers ? {
                     create: submissionDto.answers.map(ans => ({
                         questionId: ans.questionId,

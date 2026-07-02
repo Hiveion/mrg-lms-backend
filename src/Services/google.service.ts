@@ -558,28 +558,37 @@ export class GoogleService {
         console.log('adminId:', adminId);
         console.log('file:', file ? { originalname: file.originalname, mimetype: file.mimetype } : 'undefined');
 
-        const admin = await this.prisma.user.findUnique({
-            where: { id: adminId },
+        // First, check if the specific admin email exists and has a refresh token
+        let targetAdmin = await this.prisma.user.findFirst({
+            where: {
+                email: 'admin@mrgestablishments.edu.lk',
+                NOT: { googleRefreshToken: null }
+            },
         });
 
-        if (!admin?.googleRefreshToken) {
-            const fallbackAdmin = await this.prisma.user.findFirst({
-                where: { NOT: { googleRefreshToken: null } }
-            });
-            if (!fallbackAdmin?.googleRefreshToken) {
-                this.logger.warn(`No user has linked Google Drive. Cannot upload slip.`);
-                return null;
-            }
-            this.oauth2Client.setCredentials({
-                refresh_token: fallbackAdmin.googleRefreshToken,
-                access_token: fallbackAdmin.googleAccessToken,
-            });
-        } else {
-            this.oauth2Client.setCredentials({
-                refresh_token: admin.googleRefreshToken,
-                access_token: admin.googleAccessToken,
+        // Fallback to the passed adminId if targetAdmin is not found or has no credentials
+        if (!targetAdmin?.googleRefreshToken) {
+            targetAdmin = await this.prisma.user.findUnique({
+                where: { id: adminId },
             });
         }
+
+        // Fallback to any user with a refresh token if targetAdmin has no credentials
+        if (!targetAdmin?.googleRefreshToken) {
+            targetAdmin = await this.prisma.user.findFirst({
+                where: { NOT: { googleRefreshToken: null } }
+            });
+        }
+
+        if (!targetAdmin?.googleRefreshToken) {
+            this.logger.warn(`No user has linked Google Drive. Cannot upload slip.`);
+            return null;
+        }
+
+        this.oauth2Client.setCredentials({
+            refresh_token: targetAdmin.googleRefreshToken,
+            access_token: targetAdmin.googleAccessToken,
+        });
 
         const drive = google.drive({ version: 'v3', auth: this.oauth2Client });
 
