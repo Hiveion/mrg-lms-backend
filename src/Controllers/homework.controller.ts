@@ -1,4 +1,5 @@
-import { Controller, Post, Body, Get, Param, ParseIntPipe, UseGuards, Request, ForbiddenException } from '@nestjs/common';
+import { Controller, Post, Body, Get, Param, ParseIntPipe, UseGuards, Request, ForbiddenException, UseInterceptors, UploadedFile } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { HomeworkService } from '../Services/homework.service';
 import { CreateHomeworkDto, CreateHomeworkSubmissionDto, GradeSubmissionDto } from '../DTOs/homework.dto';
 import { AuthGuard } from '@nestjs/passport';
@@ -57,14 +58,52 @@ export class HomeworkController {
 
     @UseGuards(AuthGuard('jwt'))
     @Post()
-    create(@Request() req: any, @Body() createHomeworkDto: CreateHomeworkDto) {
-        return this.homeworkService.create(createHomeworkDto, req.user.id, req.user.userType);
+    @UseInterceptors(FileInterceptor('file'))
+    create(
+        @Request() req: any,
+        @Body() body: any,
+        @UploadedFile() file?: any
+    ) {
+        const createHomeworkDto = { ...body };
+        if (typeof createHomeworkDto.classId === 'string') {
+            createHomeworkDto.classId = parseInt(createHomeworkDto.classId, 10);
+        }
+        if (typeof createHomeworkDto.totalMarks === 'string') {
+            createHomeworkDto.totalMarks = parseFloat(createHomeworkDto.totalMarks);
+        }
+        if (typeof createHomeworkDto.deadlineDays === 'string') {
+            createHomeworkDto.deadlineDays = parseInt(createHomeworkDto.deadlineDays, 10);
+        }
+        if (typeof createHomeworkDto.questions === 'string') {
+            try {
+                createHomeworkDto.questions = JSON.parse(createHomeworkDto.questions);
+            } catch (e) {
+                // ignore
+            }
+        }
+        return this.homeworkService.create(createHomeworkDto, req.user.id, req.user.userType, file);
     }
 
     @UseGuards(AuthGuard('jwt'))
     @Post('submit')
-    submit(@Request() req: any, @Body() submissionDto: CreateHomeworkSubmissionDto) {
-        return this.homeworkService.submit(req.user.id, submissionDto);
+    @UseInterceptors(FileInterceptor('file'))
+    submit(
+        @Request() req: any,
+        @Body() body: any,
+        @UploadedFile() file?: any
+    ) {
+        const submissionDto = { ...body };
+        if (typeof submissionDto.homeworkId === 'string') {
+            submissionDto.homeworkId = parseInt(submissionDto.homeworkId, 10);
+        }
+        if (typeof submissionDto.answers === 'string') {
+            try {
+                submissionDto.answers = JSON.parse(submissionDto.answers);
+            } catch (e) {
+                // ignore
+            }
+        }
+        return this.homeworkService.submit(req.user.id, submissionDto, file);
     }
 
     @UseGuards(AuthGuard('jwt'))

@@ -2,12 +2,16 @@ import { Injectable, NotFoundException, BadRequestException, ForbiddenException 
 import { PrismaService } from '../Database/prisma.service';
 import { CreateHomeworkDto, CreateHomeworkSubmissionDto, GradeSubmissionDto } from '../DTOs/homework.dto';
 import { HomeworkType, SubmissionStatus, EnrollmentStatus, UserRole } from '@prisma/client';
+import { GoogleService } from './google.service';
 
 @Injectable()
 export class HomeworkService {
-    constructor(private prisma: PrismaService) { }
+    constructor(
+        private prisma: PrismaService,
+        private googleService: GoogleService,
+    ) { }
 
-    async create(createHomeworkDto: CreateHomeworkDto, callerId?: number, callerRole?: string) {
+    async create(createHomeworkDto: CreateHomeworkDto, callerId?: number, callerRole?: string, file?: any) {
         const { questions, ...homeworkData } = createHomeworkDto;
 
         // Validate class exists
@@ -31,13 +35,22 @@ export class HomeworkService {
             throw new BadRequestException('Quiz type homework must have at least one question');
         }
 
-        if (homeworkData.type === HomeworkType.FILE && !homeworkData.fileUrl) {
-            throw new BadRequestException('File type homework must have a file URL');
+        if (homeworkData.type === HomeworkType.FILE && !homeworkData.fileUrl && !file) {
+            throw new BadRequestException('File type homework must have a file URL or file upload');
+        }
+
+        let fileUrl = homeworkData.fileUrl;
+        if (file) {
+            const uploadResult = await this.googleService.uploadFile(callerId || 0, file, 'assignments');
+            if (uploadResult) {
+                fileUrl = uploadResult.webViewLink;
+            }
         }
 
         return this.prisma.homework.create({
             data: {
                 ...homeworkData,
+                fileUrl,
                 deadlineDate: homeworkData.deadlineDate ? new Date(homeworkData.deadlineDate) : null,
                 questions: questions ? {
                     create: questions
@@ -417,7 +430,7 @@ export class HomeworkService {
         });
     }
 
-    async submit(userId: number, submissionDto: CreateHomeworkSubmissionDto) {
+    async submit(userId: number, submissionDto: CreateHomeworkSubmissionDto, file?: any) {
         const homework = await this.prisma.homework.findUnique({
             where: { id: submissionDto.homeworkId },
         });
@@ -463,12 +476,20 @@ export class HomeworkService {
             }
         }
 
+        let submissionFileUrl = submissionDto.submissionFileUrl;
+        if (file) {
+            const uploadResult = await this.googleService.uploadFile(userId, file, 'submissions');
+            if (uploadResult) {
+                submissionFileUrl = uploadResult.webViewLink;
+            }
+        }
+
         return this.prisma.homeworkSubmission.create({
             data: {
                 homeworkId: homework.id,
                 studentId: student.id,
                 status,
-                submissionFileUrl: submissionDto.submissionFileUrl,
+                submissionFileUrl,
                 answers: submissionDto.answers ? {
                     create: submissionDto.answers.map(ans => ({
                         questionId: ans.questionId,
