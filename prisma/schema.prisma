@@ -124,6 +124,7 @@ model User {
   replyLikes         ReplyLike[]
   notifications      Notification[]
   payments           Payment[]
+  uploadedResources  Resource[]
 
   @@map("users")
 }
@@ -244,6 +245,7 @@ model Class {
   homeworks  Homework[]
   discussionThreads DiscussionThread[]
   invoiceItems InvoiceItem[]
+  resources Resource[]
   @@map("classes")
 }
 
@@ -657,3 +659,25 @@ model SessionFeedback {
   @@unique([sessionId, studentId])
   @@map("session_feedbacks")
 }
+
+model Resource {
+  id           Int      @id @default(autoincrement()) @map("resource_id")
+  classId      Int      @map("class_id")
+  title        String
+  description  String?
+  fileUrl      String   @map("file_url")
+  fileId       String   @map("file_id")
+  fileName     String   @map("file_name")
+  fileSize     Int?     @map("file_size")
+  mimeType     String?  @map("mime_type")
+  uploadedById Int      @map("uploaded_by_id")
+  downloadCount Int     @default(0) @map("download_count")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  class        Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  uploadedBy   User     @relation(fields: [uploadedById], references: [id], onDelete: Cascade)
+
+  @@map("resources")
+}
+

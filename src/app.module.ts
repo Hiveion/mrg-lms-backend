@@ -21,9 +21,10 @@ import { DiscussionModule } from './Modules/discussion.module';
 import { RecordingModule } from './Modules/recording.module';
 import { GoogleModule } from './Modules/google.module';
 import { ExchangeRateModule } from './Modules/exchange-rate.module';
+import { ResourceModule } from './Modules/resource.module';
 
 @Module({
-  imports: [DatabaseModule, ExchangeRateModule, AuthModule, UsersModule, SubjectModule, ClassModule, SessionModule, EnrollmentModule, HomeworkModule, RatingModule, AdminModule, MailModule, SchedulingModule, RescheduleModule, NotificationModule, InvoiceModule, DiscussionModule, RecordingModule, GoogleModule],
+  imports: [DatabaseModule, ExchangeRateModule, AuthModule, UsersModule, SubjectModule, ClassModule, SessionModule, EnrollmentModule, HomeworkModule, RatingModule, AdminModule, MailModule, SchedulingModule, RescheduleModule, NotificationModule, InvoiceModule, DiscussionModule, RecordingModule, GoogleModule, ResourceModule],
   controllers: [AppController],
   providers: [AppService],
 })
