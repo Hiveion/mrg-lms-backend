@@ -469,22 +469,41 @@ export class GoogleService {
             const drive = google.drive({ version: 'v3', auth: this.oauth2Client });
 
             try {
-                // Gemini transcripts are saved as Google Docs
-                const response = await drive.files.list({
-                    q: `mimeType='application/vnd.google-apps.document' and name contains 'Notes by Gemini' and trashed=false`,
+                // Try to search for 'Transcript' or 'transcript' first
+                let response = await drive.files.list({
+                    q: `mimeType='application/vnd.google-apps.document' and (name contains 'Transcript' or name contains 'transcript') and trashed=false`,
                     fields: 'files(id, name, webViewLink, createdTime)',
                     orderBy: 'createdTime desc',
                     pageSize: 20,
                 });
 
-                const files = response.data.files || [];
-                this.logger.log(`Found ${files.length} notes doc(s) in ${user.email}'s Drive`);
+                let files = response.data.files || [];
+                this.logger.log(`Found ${files.length} transcript doc(s) in ${user.email}'s Drive`);
 
-                const matched = files.find((file) => {
+                let matched = files.find((file) => {
                     const created = new Date(file.createdTime!);
-                    console.log(`Notes Doc: ${file.name}, created: ${created}`);
+                    console.log(`Transcript Doc: ${file.name}, created: ${created}`);
                     return created >= windowStart && created <= windowEnd;
                 });
+
+                // Fallback to 'Notes by Gemini' if no transcript doc is found
+                if (!matched) {
+                    this.logger.log(`No transcript doc found. Searching for Notes by Gemini...`);
+                    response = await drive.files.list({
+                        q: `mimeType='application/vnd.google-apps.document' and name contains 'Notes by Gemini' and trashed=false`,
+                        fields: 'files(id, name, webViewLink, createdTime)',
+                        orderBy: 'createdTime desc',
+                        pageSize: 20,
+                    });
+                    files = response.data.files || [];
+                    this.logger.log(`Found ${files.length} notes doc(s) in ${user.email}'s Drive`);
+
+                    matched = files.find((file) => {
+                        const created = new Date(file.createdTime!);
+                        console.log(`Notes Doc: ${file.name}, created: ${created}`);
+                        return created >= windowStart && created <= windowEnd;
+                    });
+                }
 
                 if (matched) {
                     await this.prisma.session.update({
@@ -496,7 +515,7 @@ export class GoogleService {
                         },
                     });
 
-                    this.logger.log(`Transcript saved for session ${sessionId}: ${matched.webViewLink}`);
+                    this.logger.log(`Transcript/Notes saved for session ${sessionId}: ${matched.webViewLink}`);
                     return matched.webViewLink!;
                 }
 
