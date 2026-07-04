@@ -133,6 +133,15 @@ export class ClassService {
                 schedules: {
                     orderBy: { day: 'asc' },
                 },
+                enrollments: {
+                    include: {
+                        student: {
+                            include: {
+                                user: true,
+                            },
+                        },
+                    },
+                },
             },
         });
 
@@ -246,6 +255,19 @@ export class ClassService {
                     this.exchangeRateService
                 )
             )
+        );
+    }
+
+    async findOneForStudent(id: number, studentUserId: number) {
+        const classItem = await this.findOne(id);
+        const student = await this.prisma.student.findFirst({
+            where: { user: { id: studentUserId } },
+        });
+        const studentCurrency = student?.currency || 'USD';
+        return ClassFeeConverter.convertClassFeeForStudent(
+            classItem,
+            studentCurrency,
+            this.exchangeRateService
         );
     }
 }

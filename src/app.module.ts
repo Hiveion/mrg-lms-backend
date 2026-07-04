@@ -24,7 +24,7 @@ import { ExchangeRateModule } from './Modules/exchange-rate.module';
 import { ResourceModule } from './Modules/resource.module';
 
 @Module({
-  imports: [DatabaseModule, ExchangeRateModule, AuthModule, UsersModule, SubjectModule, ClassModule, SessionModule, EnrollmentModule, HomeworkModule, RatingModule, AdminModule, MailModule, SchedulingModule, RescheduleModule, NotificationModule, InvoiceModule, DiscussionModule, RecordingModule, GoogleModule, ResourceModule],
+  imports: [DatabaseModule, ExchangeRateModule, AuthModule, UsersModule, SubjectModule, ClassModule, SessionModule, EnrollmentModule, HomeworkModule, RatingModule, AdminModule, MailModule, SchedulingModule, RescheduleModule, NotificationModule, InvoiceModule, DiscussionModule, RecordingModule, GoogleModule, ResourceModule, PayoutModule],
   controllers: [AppController],
   providers: [AppService],
 })

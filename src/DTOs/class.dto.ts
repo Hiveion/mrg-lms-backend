@@ -34,6 +34,11 @@ export class CreateClassDto {
     @IsOptional()
     @Min(0)
     classFee?: number;
+
+    @IsNumber()
+    @IsOptional()
+    @Min(0)
+    tutorHourlyRate?: number;
 }
 
 export class UpdateClassDto {
@@ -70,5 +75,10 @@ export class UpdateClassDto {
     @IsOptional()
     @Min(0)
     classFee?: number;
+
+    @IsNumber()
+    @IsOptional()
+    @Min(0)
+    tutorHourlyRate?: number;
 }
 
