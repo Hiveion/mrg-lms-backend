@@ -5,7 +5,7 @@ import { PrismaService } from '../Database/prisma.service';
 @Injectable()
 export class GoogleService {
     private readonly logger = new Logger(GoogleService.name);
-    private oauth2Client;
+    public oauth2Client;
 
     constructor(private prisma: PrismaService) {
         this.oauth2Client = new google.auth.OAuth2(
@@ -553,106 +553,98 @@ export class GoogleService {
     }
 }
 
-    async uploadFile(adminId: number, file: any, folderName = 'MRG Payout Slips'): Promise<{ fileId: string; webViewLink: string } | null> {
-        console.log('=== GoogleService.uploadFile ===');
-        console.log('adminId:', adminId);
-        console.log('file:', file ? { originalname: file.originalname, mimetype: file.mimetype } : 'undefined');
+async uploadFile(adminId: number, file: any, folderName = 'MRG Payout Slips'): Promise<{ fileId: string; webViewLink: string } | null> {
+    console.log('=== GoogleService.uploadFile ===');
+    console.log('adminId:', adminId);
+    console.log('file:', file ? { originalname: file.originalname, mimetype: file.mimetype } : 'undefined');
 
-        // First, check if the specific admin email exists and has a refresh token
-        let targetAdmin = await this.prisma.user.findFirst({
-            where: {
-                email: 'admin@mrgestablishments.edu.lk',
-                NOT: { googleRefreshToken: null }
-            },
+    const admin = await this.prisma.user.findUnique({
+        where: { id: adminId },
+    });
+
+    if (!admin?.googleRefreshToken) {
+        const fallbackAdmin = await this.prisma.user.findFirst({
+            where: { NOT: { googleRefreshToken: null } }
         });
-
-        // Fallback to the passed adminId if targetAdmin is not found or has no credentials
-        if (!targetAdmin?.googleRefreshToken) {
-            targetAdmin = await this.prisma.user.findUnique({
-                where: { id: adminId },
-            });
-        }
-
-        // Fallback to any user with a refresh token if targetAdmin has no credentials
-        if (!targetAdmin?.googleRefreshToken) {
-            targetAdmin = await this.prisma.user.findFirst({
-                where: { NOT: { googleRefreshToken: null } }
-            });
-        }
-
-        if (!targetAdmin?.googleRefreshToken) {
+        if (!fallbackAdmin?.googleRefreshToken) {
             this.logger.warn(`No user has linked Google Drive. Cannot upload slip.`);
             return null;
         }
-
         this.oauth2Client.setCredentials({
-            refresh_token: targetAdmin.googleRefreshToken,
-            access_token: targetAdmin.googleAccessToken,
+            refresh_token: fallbackAdmin.googleRefreshToken,
+            access_token: fallbackAdmin.googleAccessToken,
+        });
+    } else {
+        this.oauth2Client.setCredentials({
+            refresh_token: admin.googleRefreshToken,
+            access_token: admin.googleAccessToken,
+        });
+    }
+
+    const drive = google.drive({ version: 'v3', auth: this.oauth2Client });
+
+    try {
+        // 1. Check if folder exists, if not create it
+        let folderId = '';
+        const folderList = await drive.files.list({
+            q: `mimeType='application/vnd.google-apps.folder' and name='${folderName}' and trashed=false`,
+            fields: 'files(id)',
         });
 
-        const drive = google.drive({ version: 'v3', auth: this.oauth2Client });
-
-        try {
-            // 1. Check if folder exists, if not create it
-            let folderId = '';
-            const folderList = await drive.files.list({
-                q: `mimeType='application/vnd.google-apps.folder' and name='${folderName}' and trashed=false`,
-                fields: 'files(id)',
-            });
-
-            if (folderList.data.files && folderList.data.files.length > 0) {
-                folderId = folderList.data.files[0].id!;
-            } else {
-                const folderCreate = await drive.files.create({
-                    requestBody: {
-                        name: folderName,
-                        mimeType: 'application/vnd.google-apps.folder',
-                    },
-                    fields: 'id',
-                });
-                folderId = folderCreate.data.id!;
-            }
-
-            // 2. Upload file into the folder
-            const bufferStream = new (require('stream').Readable)();
-            bufferStream.push(file.buffer);
-            bufferStream.push(null);
-
-            const fileRes = await drive.files.create({
+        if (folderList.data.files && folderList.data.files.length > 0) {
+            folderId = folderList.data.files[0].id!;
+        } else {
+            const folderCreate = await drive.files.create({
                 requestBody: {
-                    name: file.originalname,
-                    parents: [folderId],
+                    name: folderName,
+                    mimeType: 'application/vnd.google-apps.folder',
                 },
-                media: {
-                    mimeType: file.mimetype,
-                    body: bufferStream,
-                },
-                fields: 'id, webViewLink',
+                fields: 'id',
             });
-
-            // 3. Make the file publicly viewable
-            await drive.permissions.create({
-                fileId: fileRes.data.id!,
-                requestBody: {
-                    role: 'reader',
-                    type: 'anyone',
-                },
-            });
-
-            // Re-fetch webViewLink
-            const fileInfo = await drive.files.get({
-                fileId: fileRes.data.id!,
-                fields: 'id, webViewLink',
-            });
-
-            return {
-                fileId: fileInfo.data.id!,
-                webViewLink: fileInfo.data.webViewLink!,
-            };
-        } catch (error: any) {
-            console.error('ERROR inside GoogleService.uploadFile:', error);
-            this.logger.error(`Failed to upload file to Google Drive: ${error.message}`);
-            return null;
+            folderId = folderCreate.data.id!;
         }
+
+        // 2. Upload file into the folder
+        const bufferStream = new (require('stream').Readable)();
+        bufferStream.push(file.buffer);
+        bufferStream.push(null);
+
+        const fileRes = await drive.files.create({
+            requestBody: {
+                name: file.originalname,
+                parents: [folderId],
+            },
+            media: {
+                mimeType: file.mimetype,
+                body: bufferStream,
+            },
+            fields: 'id, webViewLink',
+        });
+
+        // 3. Make the file publicly viewable
+        await drive.permissions.create({
+            fileId: fileRes.data.id!,
+            requestBody: {
+                role: 'reader',
+                type: 'anyone',
+            },
+        });
+
+        // Re-fetch webViewLink
+        const fileInfo = await drive.files.get({
+            fileId: fileRes.data.id!,
+            fields: 'id, webViewLink',
+        });
+
+        return {
+            fileId: fileInfo.data.id!,
+            webViewLink: fileInfo.data.webViewLink!,
+        };
+    } catch (error: any) {
+        console.error('ERROR inside GoogleService.uploadFile:', error);
+        this.logger.error(`Failed to upload file to Google Drive: ${error.message}`);
+        return null;
     }
 }
+}
+
