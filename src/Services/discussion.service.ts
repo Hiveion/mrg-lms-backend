@@ -140,15 +140,26 @@ export class DiscussionService {
             }
         });
 
+        // userId+threadId is a DB-level primary key, so a concurrent toggle racing past the
+        // check above lands in these catch blocks instead of crashing with an unhandled 500 —
+        // treated as idempotent since the end state (liked/not liked) is what the caller wants.
         if (existingLike) {
-            await this.prisma.discussionLike.delete({
-                where: { userId_threadId: { threadId, userId } }
-            });
+            try {
+                await this.prisma.discussionLike.delete({
+                    where: { userId_threadId: { threadId, userId } }
+                });
+            } catch (error: any) {
+                if (error.code !== 'P2025') throw error;
+            }
             return { liked: false };
         } else {
-            await this.prisma.discussionLike.create({
-                data: { threadId, userId }
-            });
+            try {
+                await this.prisma.discussionLike.create({
+                    data: { threadId, userId }
+                });
+            } catch (error: any) {
+                if (error.code !== 'P2002') throw error;
+            }
             return { liked: true };
         }
     }
@@ -161,14 +172,22 @@ export class DiscussionService {
         });
 
         if (existingLike) {
-            await this.prisma.replyLike.delete({
-                where: { userId_replyId: { replyId, userId } }
-            });
+            try {
+                await this.prisma.replyLike.delete({
+                    where: { userId_replyId: { replyId, userId } }
+                });
+            } catch (error: any) {
+                if (error.code !== 'P2025') throw error;
+            }
             return { liked: false };
         } else {
-            await this.prisma.replyLike.create({
-                data: { replyId, userId }
-            });
+            try {
+                await this.prisma.replyLike.create({
+                    data: { replyId, userId }
+                });
+            } catch (error: any) {
+                if (error.code !== 'P2002') throw error;
+            }
             return { liked: true };
         }
     }
