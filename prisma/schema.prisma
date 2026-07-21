@@ -415,6 +415,7 @@ model HomeworkSubmission {
   student  Student            @relation(fields: [studentId], references: [id], onDelete: Cascade)
   answers  SubmissionAnswer[]
 
+  @@unique([homeworkId, studentId])
   @@map("homework_submissions")
 }
 
@@ -607,6 +608,7 @@ model Invoice {
   items    InvoiceItem[]
   payments Payment[]
 
+  @@unique([studentId, month])
   @@map("invoices")
 }
 

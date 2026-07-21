@@ -7,6 +7,9 @@ Full raw request/response logs and per-trial DB snapshots: `race-condition-raw-l
 
 Plan executed: `docs/security/race-condition-test-plan.md` (all 12 items).
 
+> **Update:** All 9 confirmed findings below have since been fixed and re-verified. See
+> `race-condition-fixes-verification.md` for the fix details and before/after re-test results.
+
 ## Plain-English summary
 
 We tested what happens when the same action gets sent to the app many times at once — like

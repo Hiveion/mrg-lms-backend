@@ -282,10 +282,18 @@ export class RatingService {
             throw new BadRequestException('You have already liked this review');
         }
 
-        // Create the like record and increment the likes count atomically
-        await this.prisma.ratingLike.create({
-            data: { userId, ratingId },
-        });
+        // userId+ratingId is a DB-level unique constraint, so a concurrent like racing past
+        // the check above lands here as a clean P2002 instead of an unhandled 500.
+        try {
+            await this.prisma.ratingLike.create({
+                data: { userId, ratingId },
+            });
+        } catch (error: any) {
+            if (error.code === 'P2002') {
+                throw new BadRequestException('You have already liked this review');
+            }
+            throw error;
+        }
 
         return this.prisma.rating.update({
             where: { id: ratingId },
@@ -313,12 +321,20 @@ export class RatingService {
             throw new BadRequestException('You have not liked this review');
         }
 
-        // Delete the like record and decrement the likes count atomically
-        await this.prisma.ratingLike.delete({
-            where: {
-                userId_ratingId: { userId, ratingId },
-            },
-        });
+        // Same race-safety as addLike: a concurrent unlike racing past the check above
+        // lands here as a clean P2025 (record already deleted) instead of an unhandled 500.
+        try {
+            await this.prisma.ratingLike.delete({
+                where: {
+                    userId_ratingId: { userId, ratingId },
+                },
+            });
+        } catch (error: any) {
+            if (error.code === 'P2025') {
+                throw new BadRequestException('You have not liked this review');
+            }
+            throw error;
+        }
 
         return this.prisma.rating.update({
             where: { id: ratingId },

@@ -99,17 +99,26 @@ export class AdminService {
                 } as any,
             });
         } else {
-            // Create new incomplete user
-            user = await this.prisma.user.create({
-                data: {
-                    email: inviteUserDto.email,
-                    firstName: '',
-                    lastName: '',
-                    userType: inviteUserDto.userType || null,
-                    status: UserStatus.INCOMPLETE,
-                    invitationExpiresAt: expiresAt,
-                } as any,
-            });
+            // Create new incomplete user. Email is unique at the DB level, so a concurrent
+            // invite for the same address racing past the check above lands here as a clean
+            // P2002 instead of an unhandled 500.
+            try {
+                user = await this.prisma.user.create({
+                    data: {
+                        email: inviteUserDto.email,
+                        firstName: '',
+                        lastName: '',
+                        userType: inviteUserDto.userType || null,
+                        status: UserStatus.INCOMPLETE,
+                        invitationExpiresAt: expiresAt,
+                    } as any,
+                });
+            } catch (error: any) {
+                if (error.code === 'P2002') {
+                    throw new ConflictException('An invitation for this email is already being processed, please retry');
+                }
+                throw error;
+            }
         }
 
         // Generate a 4-hour valid invitation token
@@ -150,17 +159,27 @@ export class AdminService {
             ? UserStatus.PENDING
             : UserStatus.ACTIVE;
 
-        const user = await this.prisma.user.create({
-            data: {
-                email: createUserByAdminDto.email,
-                passwordHash: hashedPassword,
-                firstName: createUserByAdminDto.firstName,
-                lastName: createUserByAdminDto.lastName,
-                userType: createUserByAdminDto.userType,
-                status: UserStatus.INCOMPLETE, // Start as incomplete to force profile setup
-                mustChangePassword: true,
-            },
-        });
+        // Email is unique at the DB level, so a concurrent create for the same address racing
+        // past the check above lands here as a clean P2002 instead of an unhandled 500.
+        let user;
+        try {
+            user = await this.prisma.user.create({
+                data: {
+                    email: createUserByAdminDto.email,
+                    passwordHash: hashedPassword,
+                    firstName: createUserByAdminDto.firstName,
+                    lastName: createUserByAdminDto.lastName,
+                    userType: createUserByAdminDto.userType,
+                    status: UserStatus.INCOMPLETE, // Start as incomplete to force profile setup
+                    mustChangePassword: true,
+                },
+            });
+        } catch (error: any) {
+            if (error.code === 'P2002') {
+                throw new ConflictException('User with this email already exists');
+            }
+            throw error;
+        }
 
         // Send account creation email with temporary password
         try {
@@ -208,7 +227,15 @@ export class AdminService {
 
         const className = dto.name || `${subject.name} - ${tutor.user.firstName}`;
 
-        const result = await this.prisma.$transaction(async (tx) => {
+        // Two admins assigning overlapping-schedule classes at the same time can cause this
+        // transaction to fail (e.g. a competing transaction already modified/deleted the same
+        // availability row this one is trying to punch out — surfaces as P2025). Postgres
+        // rolls the whole transaction back cleanly in that case (no partial/corrupted writes),
+        // so the only thing to fix here is surfacing a clean, retryable error instead of a
+        // raw unhandled 500.
+        let result;
+        try {
+            result = await this.prisma.$transaction(async (tx) => {
             // 1. Create Class
             const newClass = await tx.class.create({
                 data: {
@@ -297,6 +324,12 @@ export class AdminService {
                 }
             });
         });
+        } catch (error: any) {
+            if (error.code === 'P2025' || error.code === 'P2002') {
+                throw new ConflictException('This time slot was just modified by another request — please retry');
+            }
+            throw error;
+        }
 
         // 5. Create Google Calendar events and Meet links
         if (result && result.sessions.length > 0) {
@@ -521,14 +554,19 @@ export class AdminService {
             throw new NotFoundException('User not found');
         }
 
-        if (user.status !== UserStatus.PENDING) {
+        // Atomic conditional update: only flips PENDING -> ACTIVE if the status is still
+        // PENDING at the moment of the write, so a concurrent approve/reject can't both
+        // "succeed" against the same stale read.
+        const result = await this.prisma.user.updateMany({
+            where: { id: userId, status: UserStatus.PENDING },
+            data: { status: UserStatus.ACTIVE },
+        });
+
+        if (result.count === 0) {
             throw new ConflictException('User is not in PENDING status');
         }
 
-        const updatedUser = await this.prisma.user.update({
-            where: { id: userId },
-            data: { status: UserStatus.ACTIVE },
-        });
+        const updatedUser = await this.prisma.user.findUnique({ where: { id: userId } });
 
         // Send approval email
         try {
@@ -552,11 +590,18 @@ export class AdminService {
             throw new NotFoundException('User not found');
         }
 
-        // When rejecting, we can either delete or set to INACTIVE
-        const updatedUser = await this.prisma.user.update({
-            where: { id: userId },
+        // Same atomic-conditional-update guard as approveUser: only flips PENDING -> INACTIVE
+        // if the status is still PENDING, so a concurrent approve/reject race can't both win.
+        const result = await this.prisma.user.updateMany({
+            where: { id: userId, status: UserStatus.PENDING },
             data: { status: UserStatus.INACTIVE },
         });
+
+        if (result.count === 0) {
+            throw new ConflictException('User is not in PENDING status');
+        }
+
+        const updatedUser = await this.prisma.user.findUnique({ where: { id: userId } });
 
         // Send rejection email
         try {
