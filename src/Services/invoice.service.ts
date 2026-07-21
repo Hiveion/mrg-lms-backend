@@ -71,32 +71,42 @@ export class InvoiceService {
             const [year, monthStr] = month.split('-').map(Number);
             const dueDate = new Date(year, monthStr - 1, 15);
 
-            // Create Invoice and items in a transaction
-            const newInvoice = await this.prisma.invoice.create({
-                data: {
-                    studentId,
-                    month,
-                    subtotal,
-                    discount: 0.0,
-                    additionalPayment: 0.0,
-                    total: subtotal,
-                    status: InvoiceStatus.DRAFT,
-                    dueDate,
-                    items: {
-                        create: enrollments.map(e => ({
-                            classId: e.classId,
-                            description: `${e.class.subject.name} (${e.class.grade || 'Default'})`,
-                            amount: e.assignedPrice,
-                        })),
+            // Create Invoice and items. `studentId + month` is unique at the DB level, so a
+            // concurrent generation run racing past the check above lands here as a clean
+            // P2002 instead of a duplicate invoice.
+            try {
+                const newInvoice = await this.prisma.invoice.create({
+                    data: {
+                        studentId,
+                        month,
+                        subtotal,
+                        discount: 0.0,
+                        additionalPayment: 0.0,
+                        total: subtotal,
+                        status: InvoiceStatus.DRAFT,
+                        dueDate,
+                        items: {
+                            create: enrollments.map(e => ({
+                                classId: e.classId,
+                                description: `${e.class.subject.name} (${e.class.grade || 'Default'})`,
+                                amount: e.assignedPrice,
+                            })),
+                        },
                     },
-                },
-                include: {
-                    items: true,
-                },
-            });
+                    include: {
+                        items: true,
+                    },
+                });
 
-            results.push(newInvoice);
-            createdInvoicesCount++;
+                results.push(newInvoice);
+                createdInvoicesCount++;
+            } catch (error: any) {
+                if (error.code === 'P2002') {
+                    skippedInvoicesCount++;
+                    continue;
+                }
+                throw error;
+            }
         }
 
         return {

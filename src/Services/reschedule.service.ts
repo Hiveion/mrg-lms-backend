@@ -59,19 +59,30 @@ export class RescheduleService {
             throw new BadRequestException('You already have a pending reschedule request for this session');
         }
 
-        const request = await this.prisma.rescheduleRequest.create({
-            data: {
-                sessionId,
-                studentId: student.id,
-                proposedDateTime: new Date(dto.proposedDateTime),
-                reason: dto.reason,
-            },
-            include: {
-                session: {
-                    include: { class: { include: { subject: true } } },
+        // A partial unique index on (sessionId, studentId) WHERE status='PENDING' backs this
+        // up at the DB level, so a concurrent request racing past the check above lands here
+        // as a clean P2002 instead of a duplicate PENDING row.
+        let request;
+        try {
+            request = await this.prisma.rescheduleRequest.create({
+                data: {
+                    sessionId,
+                    studentId: student.id,
+                    proposedDateTime: new Date(dto.proposedDateTime),
+                    reason: dto.reason,
                 },
-            },
-        });
+                include: {
+                    session: {
+                        include: { class: { include: { subject: true } } },
+                    },
+                },
+            });
+        } catch (error: any) {
+            if (error.code === 'P2002') {
+                throw new BadRequestException('You already have a pending reschedule request for this session');
+            }
+            throw error;
+        }
 
         // NOTIFICATION: Notify Tutor
         try {
