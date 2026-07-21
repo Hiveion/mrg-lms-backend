@@ -32,6 +32,15 @@ at ~30), no unbounded network calls.
    - Test: same session/student, fire concurrent `POST /reschedule/sessions/:sessionId`.
    - Success = >1 PENDING request row for the same session+student.
 
+5. **User approval/rejection race** — `admin.service.ts:515-531` (`approveUser`) reads
+   `user.status`, checks `!== PENDING`, then a separate `update`. `status` is a plain enum
+   field with no unique/optimistic-lock guard. Two concurrent approve/reject calls on the
+   same user (or a double-click) can both pass the check before either write lands.
+   - Test: same pending user, fire concurrent `POST /admin/approve-user/:id` and
+     `POST /admin/reject-user/:id` (or two concurrent approve calls).
+   - Success = final user status is inconsistent with a single clean approve/reject
+     (e.g. both requests report success, or status flips unexpectedly).
+
 ### Tier 2 — DB unique constraint exists, but check for lost-update / inconsistent counters
 
 5. **Enrollment capacity overshoot** — `Enrollment` has unique (studentId, classId), so a
@@ -62,20 +71,51 @@ at ~30), no unbounded network calls.
    - Success criteria = either a graceful single-winner (good) or an unhandled 500 stack
      trace leak (bug, lower severity than duplication but still worth flagging).
 
+9. **Duplicate invite/create-user email race** — `admin.service.ts:79-113` (`inviteUser`)
+   and `:137-163` (`createUserByAdmin`) — `findUnique` by email then `create`, two separate
+   calls, no transaction. `User.email` IS `@unique` in the schema, so a true race can't
+   create two accounts on the same email, but the P2002 conflict is unhandled here —
+   expect an ugly unhandled-exception/500 instead of a clean "already invited" error.
+   - Test: same email, fire concurrent `POST /admin/invite-user` (and separately
+     `POST /admin/create-user`).
+   - Success criteria = confirm only one user row is created (should hold), but flag if the
+     losing request returns a raw 500/stack trace instead of a handled 409/400.
+
+10. **Class assignment availability corruption** — `admin.service.ts:183-324`
+    (`assignClass`) reads tutor/student availability slots, then subtracts/recreates them
+    inside a `$transaction` — but each concurrent call independently reads the "before"
+    state first. `TutorAvailability`/`StudentAvailability` have no constraints preventing
+    overlapping rows. Two admins assigning overlapping-schedule classes at the same time
+    can each read stale availability and overwrite each other's changes.
+    - Test: two classes with overlapping tutor/student availability windows, fire
+      concurrent `POST /admin/assign-class` for both.
+    - Success = resulting `TutorAvailability`/`StudentAvailability` rows are corrupted/
+      lost compared to what two sequential assignments would have produced.
+
 ### Tier 3 — lower value / confirm only
 
-9. **Session feedback → auto-complete session** — `session.service.ts:679-733`. Protected by
-   unique (sessionId, studentId) on `SessionFeedback`, so double-submit itself is blocked;
-   only the `feedbacksCount >= enrollmentsCount` completion check is non-atomic. Likely
-   harmless (idempotent status flip). Test briefly, expect low/no impact — deprioritize.
+11. **Session feedback → auto-complete session** — `session.service.ts:679-733`. Protected by
+    unique (sessionId, studentId) on `SessionFeedback`, so double-submit itself is blocked;
+    only the `feedbacksCount >= enrollmentsCount` completion check is non-atomic. Likely
+    harmless (idempotent status flip). Test briefly, expect low/no impact — deprioritize.
 
-10. **Invoice status transition races** (`invoice.service.ts:110-120, 207-226`) — time-based
+12. **Invoice status transition races** (`invoice.service.ts:110-120, 207-226`) — time-based
     OVERDUE auto-flip vs manual PAID update racing. Harder to reliably reproduce (needs
     real time passage), do only if time permits.
 
 ## Out of scope for now
 - Auth lockout / credential stuffing (`auth.service.ts`) — this is a missing-control finding,
   not a TOCTOU race; separate test category, not covered by this plan.
+- `google.service.ts` Drive-folder-lookup-then-create race (`uploadFile`) — could create
+  duplicate Drive folders under concurrent uploads, but it's an external Drive-side artifact,
+  not app DB data integrity. Deprioritized.
+
+## Coverage note
+All 20 files under `src/Services/` have been reviewed for check-then-act / non-atomic
+read-modify-write patterns (initial pass covered rating, session, payout, invoice,
+reschedule, discussion, enrollment, auth, homework; a follow-up pass covered admin, class,
+notification, recording, resource, scheduling, subject, users, google, exchange-rate, mail).
+Items 5, 9, and 10 above were added from that follow-up pass.
 
 ## Execution steps per target
 1. Reset DB state relevant to the target (delete rows / re-seed) so each trial starts fresh.
