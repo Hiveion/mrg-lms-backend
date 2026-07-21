@@ -13,7 +13,7 @@ multiple distinct actors, and deleted after each test completed.
 
 ---
 
-## Item 1 — Homework double submission
+## 🔴 Item 1 — Homework double submission
 
 Endpoint: `POST /homeworks/submit`, actor: Bob (studentId=2), homeworkId=9 (no prior submission).
 Concurrency: 20.
@@ -31,7 +31,7 @@ same `student_id=2`, all `status=SUBMITTED`, timestamps within ~0.5s of each oth
 
 ---
 
-## Item 2 — Duplicate invoice generation
+## 🔴 Item 2 — Duplicate invoice generation
 
 Endpoint: `POST /invoices/generate`, body `{"month":"2026-08"}` (fresh month, 3 students with
 active enrollments). Concurrency: 15.
@@ -50,7 +50,7 @@ and skip, but never reliably (should be exactly 3 invoices total — one per stu
 
 ---
 
-## Item 3 — Discussion thread like toggle race
+## 🟡 Item 3 — Discussion thread like toggle race
 
 Endpoint: `POST /discussions/1/like`, actor: Carol, no prior like on thread 1. Concurrency: 20.
 
@@ -75,7 +75,7 @@ original plan. This constraint is what prevents duplicate rows; the 500s are unh
 
 ---
 
-## Item 4 — Duplicate pending reschedule request
+## 🔴 Item 4 — Duplicate pending reschedule request
 
 Endpoint: `POST /reschedule/sessions/2`, actor: Alice (studentId=1), no prior pending request
 for session 2. Concurrency: 20.
@@ -91,7 +91,7 @@ Trial 3: BEFORE count=0 (reset) → AFTER count=18
 
 ---
 
-## Item 5 — User approval/rejection race
+## 🟠 Item 5 — User approval/rejection race
 
 Endpoint: 10x concurrent `POST /admin/approve-user/:id` + 10x concurrent
 `POST /admin/reject-user/:id`, same target user (test user inserted directly as PENDING,
@@ -116,7 +116,7 @@ caught 2/10 races in trial 3 — the other two trials show it caught 0/10.
 
 ---
 
-## Item 6 — Enrollment capacity overshoot
+## 🚨🔴 Item 6 — Enrollment capacity overshoot (worst finding)
 
 Endpoint: `POST /enrollments`, 10 distinct throwaway students (`race.rater.1..10`,
 studentIds 4-13) against a purpose-built class (`class_id=17`, `maxStudentCount=1`,
@@ -135,7 +135,7 @@ slot. Most severe finding — 100% reproducible, 10x capacity overshoot every ti
 
 ---
 
-## Item 7 — Rating average lost-update
+## 🔵 Item 7 — Rating average lost-update
 
 Endpoint: `POST /ratings`, 10 distinct throwaway students (`race.rater.1..10`) rating the same
 tutor (tutor_id=1) concurrently, each with `overallRating: 5`. Concurrency: 10.
@@ -157,7 +157,7 @@ against a fast local DB) was never wide enough to produce a lost update with 10-
 
 ---
 
-## Item 8 — Rating like counter drift
+## 🟡 Item 8 — Rating like counter drift
 
 Endpoint: `POST /ratings/1/like`, actor: race.rater.1, no prior like on rating_id=1 (seed
 had likes=2 on this rating already). Concurrency: 20.
@@ -179,7 +179,7 @@ held in all 3 trials. Only the unhandled-500 pattern reproduced.
 
 ---
 
-## Item 9 — Payout double-generation
+## 🟡 Item 9 — Payout double-generation
 
 Endpoint: `POST /payouts/generate`, body `{"month":"2026-07"}` — month with 3 pre-existing
 COMPLETED sessions for tutor_id=1 (all from seed data). Concurrency: 15.
@@ -199,7 +199,7 @@ across all 3 trials. Matches the plan's prediction exactly.
 
 ---
 
-## Item 10 — Duplicate invite/create-user email race
+## 🟡 Item 10 — Duplicate invite/create-user email race
 
 Endpoint: `POST /admin/invite-user`, body `{"email":"race.invite.test1@gmail.com","userType":"STUDENT"}`
 (Gmail required by the endpoint's validation), fresh email each trial. Concurrency: 15.
@@ -222,7 +222,7 @@ each "successfully" update the same row. No duplicate user rows were created in 
 
 ---
 
-## Item 11 — Class assignment availability corruption
+## 🟡 Item 11 — Class assignment availability corruption
 
 Setup: tutor Robert (tutor_id=1), Monday availability `14:00-18:00` (seed state). Two concurrent
 `POST /admin/assign-class` calls with overlapping schedule slots:
@@ -256,7 +256,7 @@ response.**
 
 ---
 
-## Item 12a — Session feedback auto-complete race
+## ✅ Item 12a — Session feedback auto-complete race
 
 Setup: session_id=6 (class 3, 2 active enrollments: Alice studentId=1, Bob studentId=2), status
 reset to SCHEDULED before each trial. Two concurrent tutor (Robert) feedback submissions for the
@@ -273,7 +273,7 @@ sufficient given consistent clean results). No bug found.**
 
 ---
 
-## Item 12b — Invoice status transition race
+## ✅ Item 12b — Invoice status transition race
 
 Setup: invoice_id=118 (test invoice), status=SENT, due_date=2026-06-15 (in the past relative
 to test date 2026-07-21). Concurrent `GET /invoices` (triggers `syncOverdueStatus` bulk
