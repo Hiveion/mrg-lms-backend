@@ -7,6 +7,41 @@ Full raw request/response logs and per-trial DB snapshots: `race-condition-raw-l
 
 Plan executed: `docs/security/race-condition-test-plan.md` (all 12 items).
 
+## Plain-English summary
+
+We tested what happens when the same action gets sent to the app many times at once — like
+20 clicks landing in the same instant instead of one after another. A well-built app handles
+that gracefully; ours mostly didn't.
+
+**Out of 12 things tested, 9 showed a real problem.** They fall into three buckets:
+
+1. **The app let something happen more times than it should have (6 cases)** — this is the
+   serious bucket. A class that only had room for 1 more student let in 10 at once. A homework
+   assignment got submitted 20 times by the same student. The system generated dozens of
+   duplicate invoices for the same student in the same month. A user got approved *and*
+   rejected at the same time, with both actions reporting success. These are real bugs that
+   could cost money (double billing, capacity breaches) or corrupt records.
+
+2. **The app crashed instead of failing politely (4 cases)** — good news first: in these
+   cases, the database's own safety rules correctly stopped the duplicate from being saved.
+   The bad news: the app didn't check for that safety rule tripping, so instead of a clean
+   "you already did this" message, most of the extra requests crashed with a raw server error.
+   Not a data problem, but a bad experience — and the kind of thing that happens for real
+   whenever a user double-clicks or their app retries a slow request.
+
+3. **No problem found (3 cases)** — we suspected these were risky based on reading the code,
+   but testing them directly showed they hold up fine under pressure. Good to know, and cheap
+   to double check periodically, but not something to fix urgently.
+
+**The single worst issue:** a class enrollment limit test. We set a class to allow exactly
+1 more student, then had 10 students try to join at the same moment. All 10 got in, every
+single time we tried it. Zero were turned away. This is the clearest, most reproducible bug
+in the whole set and the first thing worth fixing.
+
+See the priority-ranked technical breakdown below for exact file locations and suggested fixes,
+and `race-condition-raw-logs.md` for the full evidence (exact requests sent, responses received,
+before/after database state) behind every claim in this report.
+
 ## Summary table
 
 | # | Finding | Confirmed? | Impact |
