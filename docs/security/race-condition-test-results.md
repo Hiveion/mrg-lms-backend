@@ -7,7 +7,7 @@ Full raw request/response logs and per-trial DB snapshots: `race-condition-raw-l
 
 Plan executed: `docs/security/race-condition-test-plan.md` (all 12 items).
 
-## Plain-English summary
+## Summary
 
 We tested what happens when the same action gets sent to the app many times at once — like
 20 clicks landing in the same instant instead of one after another. A well-built app handles
