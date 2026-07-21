@@ -43,7 +43,7 @@ at ~30), no unbounded network calls.
 
 ### Tier 2 — DB unique constraint exists, but check for lost-update / inconsistent counters
 
-5. **Enrollment capacity overshoot** — `Enrollment` has unique (studentId, classId), so a
+6. **Enrollment capacity overshoot** — `Enrollment` has unique (studentId, classId), so a
    single student can't double-enroll, but the CAPACITY check
    (`enrollment.service.ts:32-34`) is a stale read before the transaction. Different
    students racing for the last slot(s) can all pass.
@@ -51,19 +51,19 @@ at ~30), no unbounded network calls.
      concurrent `POST /enrollments` from 10-20 *different* students.
    - Success = enrolled count ends up > maxStudentCount.
 
-6. **Rating average lost-update** — `rating.service.ts:58-72/210-226/244-260` — read-all,
+7. **Rating average lost-update** — `rating.service.ts:58-72/210-226/244-260` — read-all,
    compute average in JS, write back; no transaction.
    - Test: fire concurrent `POST /ratings` for the same tutor from different students.
    - Success = final `tutor.averageRating`/`totalReviews` doesn't match a fresh recomputation
      from the actual `Rating` rows (lost update).
 
-7. **Rating like counter drift** — `RatingLike` has unique (userId, ratingId) so the like
+8. **Rating like counter drift** — `RatingLike` has unique (userId, ratingId) so the like
    row itself is protected, but the separate `rating.likes` counter update
    (`rating.service.ts:265-327`) is not transactional with the create/delete.
    - Test: concurrent like/unlike toggles from same user; check `rating.likes` vs actual
      `RatingLike` row count for drift after the storm settles.
 
-8. **Payout double-generation** — `TutorPayout` has unique (tutorId, month), so this should
+9. **Payout double-generation** — `TutorPayout` has unique (tutorId, month), so this should
    be DB-protected, but worth confirming: `payout.service.ts:246-293` findFirst-then-create
    with no transaction could still throw an unhandled P2002 under race rather than a clean
    409 — check for an unhandled-exception / 500 leak instead of silent duplication.
