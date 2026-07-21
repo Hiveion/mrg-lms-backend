@@ -29,53 +29,60 @@ export class EnrollmentService {
             throw new NotFoundException(`Class with ID ${createEnrollmentDto.classId} not found`);
         }
 
-        if (classItem.maxStudentCount && classItem.currentStudentCount >= classItem.maxStudentCount) {
-            throw new ConflictException('Class is already at maximum capacity');
-        }
-
-        // Check if enrollment already exists
-        const existingEnrollment = await this.prisma.enrollment.findUnique({
-            where: {
-                studentId_classId: {
-                    studentId: createEnrollmentDto.studentId,
-                    classId: createEnrollmentDto.classId,
-                },
-            },
-        });
-        if (existingEnrollment) {
-            throw new ConflictException('Student is already enrolled in this class');
-        }
-
         // Set assignedPrice to classFee if not provided
         const assignedPrice = createEnrollmentDto.assignedPrice !== undefined
             ? createEnrollmentDto.assignedPrice
             : classItem.classFee;
 
-        // Use transaction to create enrollment and increment class count
-        return this.prisma.$transaction(async (tx) => {
-            const enrollment = await tx.enrollment.create({
-                data: {
-                    ...createEnrollmentDto,
-                    assignedPrice,
-                    status: createEnrollmentDto.status || EnrollmentStatus.REQUESTED,
-                },
-                include: {
-                    student: { include: { user: true } },
-                    class: { include: { subject: true } },
-                },
-            });
+        try {
+            return await this.prisma.$transaction(async (tx) => {
+                // Atomically claim a capacity slot: the WHERE clause re-checks
+                // currentStudentCount at the moment of the write (not the stale read above),
+                // so concurrent enrollments can't all pass a check based on the same snapshot.
+                if (classItem.maxStudentCount) {
+                    const capacityClaim = await tx.class.updateMany({
+                        where: {
+                            id: createEnrollmentDto.classId,
+                            currentStudentCount: { lt: classItem.maxStudentCount },
+                        },
+                        data: {
+                            currentStudentCount: { increment: 1 },
+                        },
+                    });
+                    if (capacityClaim.count === 0) {
+                        throw new ConflictException('Class is already at maximum capacity');
+                    }
+                } else {
+                    await tx.class.update({
+                        where: { id: createEnrollmentDto.classId },
+                        data: {
+                            currentStudentCount: { increment: 1 },
+                        },
+                    });
+                }
 
-            await tx.class.update({
-                where: { id: createEnrollmentDto.classId },
-                data: {
-                    currentStudentCount: {
-                        increment: 1,
+                // studentId+classId is unique at the DB level, so a concurrent duplicate
+                // enrollment attempt lands here as a clean P2002 instead of succeeding twice.
+                const enrollment = await tx.enrollment.create({
+                    data: {
+                        ...createEnrollmentDto,
+                        assignedPrice,
+                        status: createEnrollmentDto.status || EnrollmentStatus.REQUESTED,
                     },
-                },
-            });
+                    include: {
+                        student: { include: { user: true } },
+                        class: { include: { subject: true } },
+                    },
+                });
 
-            return enrollment;
-        });
+                return enrollment;
+            });
+        } catch (error: any) {
+            if (error.code === 'P2002') {
+                throw new ConflictException('Student is already enrolled in this class');
+            }
+            throw error;
+        }
     }
 
     async findAll() {

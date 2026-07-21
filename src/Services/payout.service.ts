@@ -272,24 +272,33 @@ export class PayoutService {
                 totalAmount += amount;
             }
 
-            // Create TutorPayout and its items in transaction
-            await this.prisma.tutorPayout.create({
-                data: {
-                    tutorId,
-                    month,
-                    amount: totalAmount,
-                    status: PayoutStatus.PENDING,
-                    items: {
-                        create: payoutItemsData.map(item => ({
-                            classId: item.classId,
-                            hoursCount: item.hoursCount,
-                            amount: item.amount,
-                        })),
+            // tutorId+month is unique at the DB level, so a concurrent generation run racing
+            // past the check above lands here as a clean skip instead of an unhandled 500.
+            try {
+                await this.prisma.tutorPayout.create({
+                    data: {
+                        tutorId,
+                        month,
+                        amount: totalAmount,
+                        status: PayoutStatus.PENDING,
+                        items: {
+                            create: payoutItemsData.map(item => ({
+                                classId: item.classId,
+                                hoursCount: item.hoursCount,
+                                amount: item.amount,
+                            })),
+                        },
                     },
-                },
-            });
+                });
 
-            generatedCount++;
+                generatedCount++;
+            } catch (error: any) {
+                if (error.code === 'P2002') {
+                    skippedCount++;
+                    continue;
+                }
+                throw error;
+            }
         }
 
         return {

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../Database/prisma.service';
 import { CreateHomeworkDto, CreateHomeworkSubmissionDto, GradeSubmissionDto } from '../DTOs/homework.dto';
 import { HomeworkType, SubmissionStatus, EnrollmentStatus, UserRole } from '@prisma/client';
@@ -484,28 +484,35 @@ export class HomeworkService {
             }
         }
 
-        return this.prisma.homeworkSubmission.create({
-            data: {
-                homeworkId: homework.id,
-                studentId: student.id,
-                status,
-                submissionFileUrl,
-                answers: submissionDto.answers ? {
-                    create: submissionDto.answers.map(ans => ({
-                        questionId: ans.questionId,
-                        answerText: ans.answerText,
-                    }))
-                } : undefined,
-            },
-            include: {
-                answers: {
-                    include: {
-                        question: true,
-                    },
+        try {
+            return await this.prisma.homeworkSubmission.create({
+                data: {
+                    homeworkId: homework.id,
+                    studentId: student.id,
+                    status,
+                    submissionFileUrl,
+                    answers: submissionDto.answers ? {
+                        create: submissionDto.answers.map(ans => ({
+                            questionId: ans.questionId,
+                            answerText: ans.answerText,
+                        }))
+                    } : undefined,
                 },
-                homework: true,
-            },
-        });
+                include: {
+                    answers: {
+                        include: {
+                            question: true,
+                        },
+                    },
+                    homework: true,
+                },
+            });
+        } catch (error: any) {
+            if (error.code === 'P2002') {
+                throw new ConflictException('You have already submitted this homework');
+            }
+            throw error;
+        }
     }
 
     async getMySubmissions(userId: number) {
