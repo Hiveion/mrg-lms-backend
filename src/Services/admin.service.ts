@@ -1,7 +1,7 @@
 import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../Database/prisma.service';
 import * as bcrypt from 'bcrypt';
-import { CreateUserByAdminDto, InviteUserDto, AssignClassDto } from '../DTOs/admin.dto';
+import { CreateUserByAdminDto, InviteUserDto, AssignClassDto, UpdateUserByAdminDto } from '../DTOs/admin.dto';
 import { UserStatus, UserRole, EnrollmentStatus, SessionStatus, WeekDay } from '@prisma/client';
 import { MailService } from './mail.service';
 
@@ -631,6 +631,34 @@ export class AdminService {
             const { passwordHash, ...result } = user;
             return result;
         });
+    }
+
+    async updateUserByAdmin(id: number, data: UpdateUserByAdminDto) {
+        const user = await this.prisma.user.findUnique({ where: { id } });
+        if (!user) {
+            throw new NotFoundException('User not found');
+        }
+
+        const updateData: any = {};
+        if (data.firstName !== undefined) updateData.firstName = data.firstName;
+        if (data.lastName !== undefined) updateData.lastName = data.lastName;
+        if (data.phoneNumber !== undefined) updateData.phoneNumber = data.phoneNumber;
+        if (data.status !== undefined) updateData.status = (typeof data.status === 'string' ? (data.status as string).toUpperCase() : data.status) as UserStatus;
+        if (data.userType !== undefined) updateData.userType = data.userType;
+
+        const updatedUser = await this.prisma.user.update({
+            where: { id },
+            data: updateData,
+            include: {
+                studentProfile: true,
+                tutorProfile: true,
+                parentProfile: true,
+                coordinatorProfile: true,
+            }
+        });
+
+        const { passwordHash, ...result } = updatedUser;
+        return result;
     }
 
     async sendAnnouncementToAllUsers(title: string, message: string) {

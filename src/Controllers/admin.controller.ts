@@ -1,6 +1,6 @@
 import { Controller, Post, Get, Patch, Delete, Body, UseGuards, Request, Param, ParseIntPipe, Query } from '@nestjs/common';
 import { AdminService } from '../Services/admin.service';
-import { CreateUserByAdminDto, InviteUserDto, AssignClassDto } from '../DTOs/admin.dto';
+import { CreateUserByAdminDto, InviteUserDto, AssignClassDto, UpdateUserByAdminDto } from '../DTOs/admin.dto';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../Guards/roles.guard';
 import { Roles } from '../Decorators/roles.decorator';
@@ -15,6 +15,14 @@ export class AdminController {
     @Get('users')
     async getUsers() {
         return this.adminService.findAllUsers();
+    }
+
+    @Patch('users/:id')
+    async updateUser(
+        @Param('id', ParseIntPipe) id: number,
+        @Body() updateUserDto: UpdateUserByAdminDto,
+    ) {
+        return this.adminService.updateUserByAdmin(id, updateUserDto);
     }
 
     @Get('tutors')
