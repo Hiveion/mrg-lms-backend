@@ -85,8 +85,12 @@ export class LoginDto {
 
 export class ChangePasswordDto {
     @IsString()
+    @IsOptional()
+    currentPassword?: string;
+
+    @IsString()
     @IsNotEmpty()
-    @MinLength(8)
+    @MinLength(6)
     newPassword: string;
 }
 

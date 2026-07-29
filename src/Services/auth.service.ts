@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException, ConflictException, NotFoundException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, ConflictException, NotFoundException, BadRequestException } from '@nestjs/common';
 import { UsersService } from '../Services/users.service';
 import { PrismaService } from '../Database/prisma.service';
 import { JwtService } from '@nestjs/jwt';
@@ -261,7 +261,31 @@ export class AuthService {
         return result;
     }
 
-    async changePassword(userId: number, newPassword: string) {
+    async verifyCurrentPassword(userId: number, currentPassword: string): Promise<boolean> {
+        const user = await this.usersService.findById(userId);
+        if (!user || !user.passwordHash || !currentPassword) {
+            return false;
+        }
+        return bcrypt.compare(currentPassword, user.passwordHash);
+    }
+
+    async changePassword(userId: number, newPassword: string, currentPassword?: string) {
+        const user = await this.usersService.findById(userId);
+        if (!user) {
+            throw new UnauthorizedException('User not found');
+        }
+
+        if (!currentPassword) {
+            throw new BadRequestException('Current password is required');
+        }
+        if (!user.passwordHash) {
+            throw new BadRequestException('Current password is incorrect');
+        }
+        const isMatch = await bcrypt.compare(currentPassword, user.passwordHash);
+        if (!isMatch) {
+            throw new BadRequestException('Current password is incorrect');
+        }
+
         const hashedPassword = await bcrypt.hash(newPassword, 10);
         await this.usersService.update(userId, {
             passwordHash: hashedPassword,

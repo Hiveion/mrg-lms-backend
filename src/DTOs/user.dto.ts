@@ -3,13 +3,13 @@ import {
     IsOptional,
     IsString,
     IsArray,
-    ValidateIf,
+    IsInt,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 import { UserRole, UserStatus } from '@prisma/client';
 
 /**
  * DTO for updating user profile
- * Excludes data extracted from Google account (email, googleId, profilePicture)
  */
 export class UpdateProfileDto {
     @IsString()
@@ -26,6 +26,10 @@ export class UpdateProfileDto {
 
     @IsString()
     @IsOptional()
+    profilePicture?: string;
+
+    @IsString()
+    @IsOptional()
     timezone?: string;
 
     @IsEnum(UserRole)
@@ -37,35 +41,31 @@ export class UpdateProfileDto {
     status?: UserStatus;
 
     // Tutor-specific fields
-    @ValidateIf((o) => o.userType === UserRole.TUTOR)
     @IsString()
     @IsOptional()
     bio?: string;
 
-    @ValidateIf((o) => o.userType === UserRole.TUTOR)
     @IsArray()
     @IsString({ each: true })
     @IsOptional()
     qualifications?: string[];
 
     // Student-specific fields
-    @ValidateIf((o) => o.userType === UserRole.STUDENT)
     @IsString()
     @IsOptional()
     grade?: string;
 
-    @ValidateIf((o) => o.userType === UserRole.STUDENT)
     @IsString()
     @IsOptional()
     currency?: string;
 
     // Parent-specific fields
-    @ValidateIf((o) => o.userType === UserRole.PARENT)
     @IsString()
     @IsOptional()
     occupation?: string;
 
-    @ValidateIf((o) => o.userType === UserRole.PARENT)
+    @Type(() => Number)
+    @IsInt()
     @IsOptional()
     numberOfChildren?: number;
 }

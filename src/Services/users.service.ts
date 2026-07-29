@@ -61,6 +61,7 @@ export class UsersService {
             firstName?: string;
             lastName?: string;
             phoneNumber?: string;
+            profilePicture?: string;
             timezone?: string;
             userType?: UserRole;
             bio?: string;
@@ -71,6 +72,9 @@ export class UsersService {
             numberOfChildren?: number;
         }
     ): Promise<User> {
+        const existingUser = await this.prisma.user.findUnique({ where: { id } });
+        const effectiveUserType = updateData.userType || existingUser?.userType;
+
         const { bio, qualifications, grade, currency, occupation, numberOfChildren, ...userData } = updateData;
 
         // Build the update object
@@ -78,52 +82,62 @@ export class UsersService {
             ...userData,
         };
 
+        const numChildrenParsed = numberOfChildren !== undefined && numberOfChildren !== null
+            ? (typeof numberOfChildren === 'string' ? parseInt(numberOfChildren, 10) : Number(numberOfChildren))
+            : undefined;
+
         // Handle tutor profile update
-        if (updateData.userType === 'TUTOR' && (bio !== undefined || qualifications !== undefined)) {
-            updateObject.tutorProfile = {
-                upsert: {
-                    create: {
-                        bio: bio || '',
-                        qualifications: qualifications || [],
+        if (bio !== undefined || qualifications !== undefined || effectiveUserType === 'TUTOR') {
+            if (bio !== undefined || qualifications !== undefined) {
+                updateObject.tutorProfile = {
+                    upsert: {
+                        create: {
+                            bio: bio || '',
+                            qualifications: qualifications || [],
+                        },
+                        update: {
+                            ...(bio !== undefined && { bio }),
+                            ...(qualifications !== undefined && { qualifications }),
+                        },
                     },
-                    update: {
-                        ...(bio !== undefined && { bio }),
-                        ...(qualifications !== undefined && { qualifications }),
-                    },
-                },
-            };
+                };
+            }
         }
 
         // Handle student profile update
-        if (updateData.userType === 'STUDENT' && (grade !== undefined || currency !== undefined)) {
-            updateObject.studentProfile = {
-                upsert: {
-                    create: {
-                        grade: grade || '',
-                        currency: currency || 'MVR',
+        if (grade !== undefined || currency !== undefined || effectiveUserType === 'STUDENT') {
+            if (grade !== undefined || currency !== undefined) {
+                updateObject.studentProfile = {
+                    upsert: {
+                        create: {
+                            grade: grade || '',
+                            currency: currency || 'MVR',
+                        },
+                        update: {
+                            ...(grade !== undefined && { grade }),
+                            ...(currency !== undefined && { currency }),
+                        },
                     },
-                    update: {
-                        ...(grade !== undefined && { grade }),
-                        ...(currency !== undefined && { currency }),
-                    },
-                },
-            };
+                };
+            }
         }
 
         // Handle parent profile update
-        if (updateData.userType === 'PARENT' && (occupation !== undefined || numberOfChildren !== undefined)) {
-            updateObject.parentProfile = {
-                upsert: {
-                    create: {
-                        occupation: occupation || '',
-                        numberOfChildren: numberOfChildren || 0,
+        if (occupation !== undefined || numChildrenParsed !== undefined || effectiveUserType === 'PARENT') {
+            if (occupation !== undefined || numChildrenParsed !== undefined) {
+                updateObject.parentProfile = {
+                    upsert: {
+                        create: {
+                            occupation: occupation || '',
+                            numberOfChildren: numChildrenParsed || 0,
+                        },
+                        update: {
+                            ...(occupation !== undefined && { occupation }),
+                            ...(numChildrenParsed !== undefined && { numberOfChildren: numChildrenParsed }),
+                        },
                     },
-                    update: {
-                        ...(occupation !== undefined && { occupation }),
-                        ...(numberOfChildren !== undefined && { numberOfChildren }),
-                    },
-                },
-            };
+                };
+            }
         }
 
         return this.prisma.user.update({

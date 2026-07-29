@@ -1,6 +1,6 @@
 import { IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, MinLength, IsInt, IsArray, ValidateNested, IsNumber, IsBoolean } from 'class-validator';
 import { Type } from 'class-transformer';
-import { UserRole, WeekDay } from '@prisma/client';
+import { UserRole, UserStatus, WeekDay } from '@prisma/client';
 
 export class InviteUserDto {
     @IsEmail()
@@ -33,6 +33,28 @@ export class CreateUserByAdminDto {
     @IsEnum(UserRole)
     @IsNotEmpty()
     userType: UserRole;
+}
+
+export class UpdateUserByAdminDto {
+    @IsString()
+    @IsOptional()
+    firstName?: string;
+
+    @IsString()
+    @IsOptional()
+    lastName?: string;
+
+    @IsString()
+    @IsOptional()
+    phoneNumber?: string;
+
+    @IsEnum(UserStatus)
+    @IsOptional()
+    status?: UserStatus;
+
+    @IsEnum(UserRole)
+    @IsOptional()
+    userType?: UserRole;
 }
 
 export class ClassScheduleDto {
