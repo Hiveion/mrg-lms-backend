@@ -70,11 +70,19 @@ export class AuthController {
         return this.authService.updateUserProfile(req.user.id, updateProfileDto);
     }
 
+    @Post('verify-password')
+    @UseGuards(AuthGuard('jwt'))
+    @HttpCode(HttpStatus.OK)
+    async verifyPassword(@Request() req: any, @Body() body: { currentPassword?: string }) {
+        const valid = await this.authService.verifyCurrentPassword(req.user.id, body.currentPassword || '');
+        return { valid };
+    }
+
     @Post('change-password')
     @UseGuards(AuthGuard('jwt'))
     @HttpCode(HttpStatus.OK)
     async changePassword(@Request() req: any, @Body() dto: ChangePasswordDto) {
-        return this.authService.changePassword(req.user.id, dto.newPassword);
+        return this.authService.changePassword(req.user.id, dto.newPassword, dto.currentPassword);
     }
 
     @Post('forgot-password')
