@@ -41,15 +41,15 @@ export class AuthController {
     @Get('google/callback')
     @UseGuards(GoogleAuthGuard)
     async googleAuthRedirect(@Request() req: any, @Res() res: Response) {
+        const frontendUrl = process.env.FRONTEND_URL ;
         try {
             const result = await this.authService.googleLogin(req);
-            const frontendUrl = process.env.FRONTEND_URL;
-            res.redirect(
+            return res.redirect(
                 `${frontendUrl}/auth/callback?token=${result.access_token}&status=${result.user.status}`
             );
         } catch (error) {
-            const frontendUrl = process.env.FRONTEND_URL;
-            res.redirect(`${frontendUrl}/auth?error=${encodeURIComponent(error.message)}`);
+            console.error('Google Auth Controller Error:', error);
+            return res.redirect(`${frontendUrl}/auth?error=${encodeURIComponent(error.message)}`);
         }
     }
 
