@@ -17,20 +17,26 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
     }
 
     async validate(accessToken: string, refreshToken: string, profile: any, done: VerifyCallback): Promise<any> {
-        console.log('Google Auth Strategy Validate:');
-        console.log('Access Token exists:', !!accessToken);
-        console.log('Refresh Token exists:', !!refreshToken);
+        try {
+            console.log('Google Auth Strategy Validate:');
+            console.log('Access Token exists:', !!accessToken);
+            console.log('Refresh Token exists:', !!refreshToken);
+            console.log('Google Profile received:', profile?.id, profile?.emails);
 
-        const { name, emails, photos } = profile;
-        const user = {
-            email: emails[0].value,
-            firstName: name.givenName,
-            lastName: name.familyName,
-            picture: photos[0].value,
-            googleId: profile.id,
-            accessToken,
-            refreshToken,
-        };
-        done(null, user);
+            const { name, emails, photos } = profile || {};
+            const user = {
+                email: emails?.[0]?.value || profile?._json?.email || '',
+                firstName: name?.givenName || profile?._json?.given_name || profile?.displayName || '',
+                lastName: name?.familyName || profile?._json?.family_name || '',
+                picture: photos?.[0]?.value || profile?._json?.picture || null,
+                googleId: profile?.id,
+                accessToken,
+                refreshToken,
+            };
+            done(null, user);
+        } catch (error) {
+            console.error('Error in GoogleStrategy validate:', error);
+            done(error as any, false);
+        }
     }
 }
