@@ -90,7 +90,7 @@ export class DashboardService {
             subject: c.subject.name,
             grade: c.grade || 'N/A',
             studentCount: c.currentStudentCount,
-            hourlyRate: c.tutorHourlyRate || 0
+            hourlyRate: c.tutorHourlyRate ?? tutor.hourlyRate ?? 0
         }));
 
         // Calculate total students sum from classes

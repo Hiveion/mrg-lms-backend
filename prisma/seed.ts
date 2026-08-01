@@ -61,6 +61,7 @@ async function main() {
           bio: 'Ph.D. in Theoretical Physics with 15 years of teaching experience.',
           qualifications: ['Ph.D. Physics', 'M.Ed. Secondary Education'],
           applicationStatus: 'ACCEPTED',
+          hourlyRate: 25.0,
         },
       },
     },
@@ -224,6 +225,9 @@ async function main() {
         classFee: cd.fee,
         maxStudentCount: 25,
         frequency: cd.schedules.length,
+        // Class 0 gets an explicit override rate; the rest fall back to the
+        // tutor's default hourlyRate to exercise both payout code paths.
+        tutorHourlyRate: i === 0 ? 40.0 : undefined,
       },
     });
     classes.push(classItem);
