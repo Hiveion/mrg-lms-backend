@@ -138,10 +138,6 @@ export class AssignClassDto {
     @IsOptional()
     name?: string;
 
-    @IsInt()
-    @IsOptional()
-    maxStudents?: number;
-
     @IsNumber()
     @IsOptional()
     baseFee?: number;

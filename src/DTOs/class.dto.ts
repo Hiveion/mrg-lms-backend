@@ -25,11 +25,6 @@ export class CreateClassDto {
     @IsOptional()
     isDemo?: boolean;
 
-    @IsInt()
-    @IsOptional()
-    @Min(1)
-    maxStudentCount?: number;
-
     @IsNumber()
     @IsOptional()
     @Min(0)
@@ -65,11 +60,6 @@ export class UpdateClassDto {
     @IsBoolean()
     @IsOptional()
     isDemo?: boolean;
-
-    @IsInt()
-    @IsOptional()
-    @Min(1)
-    maxStudentCount?: number;
 
     @IsNumber()
     @IsOptional()

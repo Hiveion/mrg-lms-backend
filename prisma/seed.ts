@@ -223,7 +223,6 @@ async function main() {
         grade: 'Grade 12',
         isActive: true,
         classFee: cd.fee,
-        maxStudentCount: 25,
         frequency: cd.schedules.length,
         // Class 0 gets an explicit override rate; the rest fall back to the
         // tutor's default hourlyRate to exercise both payout code paths.

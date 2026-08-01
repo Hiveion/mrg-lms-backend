@@ -29,8 +29,13 @@ export class ClassService {
             throw new NotFoundException(`Tutor with ID ${createClassDto.tutorId} not found`);
         }
 
+        let classFee = createClassDto.classFee;
+        if (classFee === undefined && tutor.hourlyRate) {
+            classFee = await this.exchangeRateService.convertCurrency(tutor.hourlyRate, tutor.currency, 'USD');
+        }
+
         return this.prisma.class.create({
-            data: createClassDto,
+            data: { ...createClassDto, classFee },
             include: {
                 subject: true,
                 tutor: {

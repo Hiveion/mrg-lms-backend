@@ -21,7 +21,7 @@ export class EnrollmentService {
             throw new NotFoundException(`Student with ID ${createEnrollmentDto.studentId} not found`);
         }
 
-        // Check if class exists and capcity
+        // Check if class exists
         const classItem = await this.prisma.class.findUnique({
             where: { id: createEnrollmentDto.classId },
         });
@@ -36,30 +36,12 @@ export class EnrollmentService {
 
         try {
             return await this.prisma.$transaction(async (tx) => {
-                // Atomically claim a capacity slot: the WHERE clause re-checks
-                // currentStudentCount at the moment of the write (not the stale read above),
-                // so concurrent enrollments can't all pass a check based on the same snapshot.
-                if (classItem.maxStudentCount) {
-                    const capacityClaim = await tx.class.updateMany({
-                        where: {
-                            id: createEnrollmentDto.classId,
-                            currentStudentCount: { lt: classItem.maxStudentCount },
-                        },
-                        data: {
-                            currentStudentCount: { increment: 1 },
-                        },
-                    });
-                    if (capacityClaim.count === 0) {
-                        throw new ConflictException('Class is already at maximum capacity');
-                    }
-                } else {
-                    await tx.class.update({
-                        where: { id: createEnrollmentDto.classId },
-                        data: {
-                            currentStudentCount: { increment: 1 },
-                        },
-                    });
-                }
+                await tx.class.update({
+                    where: { id: createEnrollmentDto.classId },
+                    data: {
+                        currentStudentCount: { increment: 1 },
+                    },
+                });
 
                 // studentId+classId is unique at the DB level, so a concurrent duplicate
                 // enrollment attempt lands here as a clean P2002 instead of succeeding twice.

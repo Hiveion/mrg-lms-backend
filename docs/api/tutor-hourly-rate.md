@@ -213,6 +213,15 @@ and stored as plain numbers with no currency conversion applied. Setting a tutor
 does not change how their payouts are calculated; it only records what currency their
 `hourlyRate` is quoted in for display purposes.
 
+## Class fee derivation (separate from payouts)
+
+`ClassService.create` and `AdminService.assignClass` are the one place `Tutor.currency` *is*
+used to convert `hourlyRate`: if a class is created without an explicit `classFee`/`baseFee`,
+the default is computed as `convertCurrency(tutor.hourlyRate, tutor.currency, 'USD')` (via
+`ExchangeRateService`), since `Class.classFee` is otherwise always treated as an implicit
+USD value elsewhere in the app (`ClassFeeConverter`, `invoice.service.ts`). This is unrelated
+to payouts — `Class.tutorHourlyRate` and the `effectiveRate` calculation above are untouched.
+
 ## What these endpoints do *not* do
 
 - Neither touches `Class.tutorHourlyRate` — per-class overrides must still be set via the
@@ -220,5 +229,7 @@ does not change how their payouts are calculated; it only records what currency 
 - Neither field is reachable from the tutor's own self-service profile endpoint
   (`PUT /auth/profile`) — that endpoint only accepts `bio`/`qualifications` for a tutor's
   profile, so a tutor cannot set their own rate or currency by any path, approval included.
-- Setting `currency` does not trigger any currency conversion of `hourlyRate`, payouts, or
-  anything else — see [Payout interaction](#payout-interaction).
+- Setting `currency` does not trigger any currency conversion of payouts or anything else
+  outside of the class-fee default described above — see
+  [Payout interaction](#payout-interaction) and
+  [Class fee derivation](#class-fee-derivation-separate-from-payouts).
