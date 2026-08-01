@@ -1,4 +1,4 @@
-import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
+import { Injectable, ConflictException, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../Database/prisma.service';
 import * as bcrypt from 'bcrypt';
 import { CreateUserByAdminDto, InviteUserDto, AssignClassDto, UpdateUserByAdminDto } from '../DTOs/admin.dto';
@@ -545,7 +545,7 @@ export class AdminService {
         }
     }
 
-    async approveUser(userId: number) {
+    async approveUser(userId: number, hourlyRate?: number, currency?: string) {
         const user = await this.prisma.user.findUnique({
             where: { id: userId },
         });
@@ -564,6 +564,18 @@ export class AdminService {
 
         if (result.count === 0) {
             throw new ConflictException('User is not in PENDING status');
+        }
+
+        if (user.userType === UserRole.TUTOR) {
+            try {
+                await this.updateTutorRate(userId, {
+                    ...(hourlyRate !== undefined && { hourlyRate }),
+                    currency: currency ?? 'LKR',
+                });
+            } catch (error) {
+                // Missing Tutor profile is an edge case that shouldn't block approval.
+                console.error(`Failed to set hourly rate/currency during approval for user ${userId}:`, error);
+            }
         }
 
         const updatedUser = await this.prisma.user.findUnique({ where: { id: userId } });
@@ -659,6 +671,25 @@ export class AdminService {
 
         const { passwordHash, ...result } = updatedUser;
         return result;
+    }
+
+    async updateTutorRate(userId: number, data: { hourlyRate?: number; currency?: string }) {
+        const tutor = await this.prisma.tutor.findUnique({ where: { userId } });
+        if (!tutor) {
+            throw new NotFoundException('Tutor profile not found');
+        }
+
+        if (data.hourlyRate === undefined && data.currency === undefined) {
+            throw new BadRequestException('At least one of hourlyRate or currency must be provided');
+        }
+
+        return this.prisma.tutor.update({
+            where: { userId },
+            data: {
+                ...(data.hourlyRate !== undefined && { hourlyRate: data.hourlyRate }),
+                ...(data.currency !== undefined && { currency: data.currency }),
+            },
+        });
     }
 
     async sendAnnouncementToAllUsers(title: string, message: string) {

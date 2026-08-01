@@ -136,6 +136,8 @@ model Tutor {
   applicationStatus ApplicationStatus @default(PENDING) @map("application_status")
   averageRating     Float             @default(0.0) @map("average_rating")
   totalReviews      Int               @default(0) @map("total_reviews")
+  hourlyRate        Float?            @map("hourly_rate")
+  currency          String            @default("LKR") @map("currency")
 
   user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId Int  @unique @map("user_id")

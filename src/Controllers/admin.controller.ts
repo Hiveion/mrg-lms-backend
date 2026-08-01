@@ -1,6 +1,6 @@
 import { Controller, Post, Get, Patch, Delete, Body, UseGuards, Request, Param, ParseIntPipe, Query } from '@nestjs/common';
 import { AdminService } from '../Services/admin.service';
-import { CreateUserByAdminDto, InviteUserDto, AssignClassDto, UpdateUserByAdminDto } from '../DTOs/admin.dto';
+import { CreateUserByAdminDto, InviteUserDto, AssignClassDto, UpdateUserByAdminDto, UpdateTutorRateDto, ApproveUserDto } from '../DTOs/admin.dto';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../Guards/roles.guard';
 import { Roles } from '../Decorators/roles.decorator';
@@ -30,6 +30,15 @@ export class AdminController {
         return this.adminService.findAllTutors();
     }
 
+    @Patch('tutors/:id/rate')
+    @Roles(UserRole.ADMIN)
+    async updateTutorRate(
+        @Param('id', ParseIntPipe) id: number,
+        @Body() dto: UpdateTutorRateDto,
+    ) {
+        return this.adminService.updateTutorRate(id, dto);
+    }
+
     @Post('invite-user')
     async inviteUser(@Body() inviteUserDto: InviteUserDto) {
         return this.adminService.inviteUser(inviteUserDto);
@@ -56,8 +65,11 @@ export class AdminController {
     }
 
     @Post('approve-user/:id')
-    async approveUser(@Param('id', ParseIntPipe) id: number) {
-        return this.adminService.approveUser(id);
+    async approveUser(
+        @Param('id', ParseIntPipe) id: number,
+        @Body() dto: ApproveUserDto,
+    ) {
+        return this.adminService.approveUser(id, dto?.hourlyRate, dto?.currency);
     }
 
     @Post('reject-user/:id')

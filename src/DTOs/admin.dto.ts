@@ -1,6 +1,8 @@
-import { IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, MinLength, IsInt, IsArray, ValidateNested, IsNumber, IsBoolean } from 'class-validator';
+import { IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, MinLength, IsInt, IsArray, ValidateNested, IsNumber, IsBoolean, Min, IsIn } from 'class-validator';
 import { Type } from 'class-transformer';
 import { UserRole, UserStatus, WeekDay } from '@prisma/client';
+
+export const TUTOR_CURRENCIES = ['LKR', 'USD', 'MVR'] as const;
 
 export class InviteUserDto {
     @IsEmail()
@@ -55,6 +57,28 @@ export class UpdateUserByAdminDto {
     @IsEnum(UserRole)
     @IsOptional()
     userType?: UserRole;
+}
+
+export class UpdateTutorRateDto {
+    @IsNumber()
+    @Min(0)
+    @IsOptional()
+    hourlyRate?: number;
+
+    @IsIn(TUTOR_CURRENCIES)
+    @IsOptional()
+    currency?: string;
+}
+
+export class ApproveUserDto {
+    @IsNumber()
+    @Min(0)
+    @IsOptional()
+    hourlyRate?: number;
+
+    @IsIn(TUTOR_CURRENCIES)
+    @IsOptional()
+    currency?: string;
 }
 
 export class ClassScheduleDto {

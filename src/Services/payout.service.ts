@@ -165,7 +165,7 @@ export class PayoutService {
             for (const [classId, data] of classMap.entries()) {
                 const totalMinutes = data.sessions.reduce((sum, s) => sum + s.duration, 0);
                 const hoursCount = totalMinutes / 60.0;
-                const hourlyRate = data.classItem.tutorHourlyRate || 0.0;
+                const hourlyRate = data.classItem.tutorHourlyRate ?? data.classItem.tutor?.hourlyRate ?? 0.0;
                 const amount = hoursCount * hourlyRate;
 
                 if (!tutorInfo && data.classItem.tutor) {
@@ -213,7 +213,11 @@ export class PayoutService {
                 class: tutorId ? { tutorId } : undefined,
             },
             include: {
-                class: true,
+                class: {
+                    include: {
+                        tutor: true,
+                    },
+                },
             },
         });
 
@@ -260,7 +264,7 @@ export class PayoutService {
             for (const [classId, data] of classMap.entries()) {
                 const totalMinutes = data.sessions.reduce((sum, s) => sum + s.duration, 0);
                 const hoursCount = totalMinutes / 60.0;
-                const hourlyRate = data.classItem.tutorHourlyRate || 0.0;
+                const hourlyRate = data.classItem.tutorHourlyRate ?? data.classItem.tutor?.hourlyRate ?? 0.0;
                 const amount = hoursCount * hourlyRate;
 
                 payoutItemsData.push({
