@@ -7,7 +7,6 @@ import { MailService } from './mail.service';
 
 import { JwtService } from '@nestjs/jwt';
 import { GoogleService } from './google.service';
-import { ExchangeRateService } from './exchange-rate.service';
 
 const dayToNum: Record<string, number> = {
     'SUNDAY': 0, 'MONDAY': 1, 'TUESDAY': 2, 'WEDNESDAY': 3, 'THURSDAY': 4, 'FRIDAY': 5, 'SATURDAY': 6
@@ -24,7 +23,6 @@ export class AdminService {
         private mailService: MailService,
         private jwtService: JwtService,
         private googleService: GoogleService,
-        private exchangeRateService: ExchangeRateService,
     ) { }
 
     async findAllTutors() {
@@ -47,7 +45,8 @@ export class AdminService {
                         id: true,
                         name: true,
                         grade: true,
-                        classFee: true,
+                        studentRateAmount: true,
+                        studentRateCurrency: true,
                         subject: {
                             select: { name: true },
                         },
@@ -229,15 +228,6 @@ export class AdminService {
 
         const className = dto.name || `${subject.name} - ${tutor.user.firstName}`;
 
-        // Derived before the transaction opens so the convertCurrency HTTP call
-        // never holds a DB transaction open.
-        let classFee = dto.baseFee;
-        if (classFee === undefined) {
-            classFee = tutor.hourlyRate
-                ? await this.exchangeRateService.convertCurrency(tutor.hourlyRate, tutor.currency, 'USD')
-                : 0;
-        }
-
         // Two admins assigning overlapping-schedule classes at the same time can cause this
         // transaction to fail (e.g. a competing transaction already modified/deleted the same
         // availability row this one is trying to punch out — surfaces as P2025). Postgres
@@ -257,7 +247,8 @@ export class AdminService {
                     isActive: true,
                     isDemo: false,
                     frequency: dto.frequency || schedule.length,
-                    classFee,
+                    studentRateAmount: dto.studentRateAmount,
+                    studentRateCurrency: dto.studentRateCurrency,
                     currentStudentCount: students.length,
                     schedules: {
                         create: schedule.map(slot => ({
@@ -270,12 +261,17 @@ export class AdminService {
             });
 
             // 2. Enroll All Students
+            // An explicit studentPriceAmount/Currency override applies uniformly to every
+            // student in the batch; otherwise each student's amount falls back to the
+            // class's advertised student rate, but currency always follows that specific
+            // student's own currency (no conversion between the two).
             await tx.enrollment.createMany({
                 data: students.map(student => ({
                     studentId: student.id,
                     classId: newClass.id,
                     status: EnrollmentStatus.ACTIVE,
-                    assignedPrice: dto.studentPrice || classFee,
+                    assignedPrice: dto.studentPriceAmount ?? dto.studentRateAmount ?? 0,
+                    priceCurrency: dto.studentPriceCurrency ?? student.currency,
                     confirmationDate: new Date(),
                 }))
             });

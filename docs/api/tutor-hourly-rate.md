@@ -208,19 +208,21 @@ any of their classes that don't already have an explicit per-class rate — it d
 already-generated `TutorPayout`/`TutorPayoutItem` records, since those store computed
 `amount`/`hoursCount` snapshots rather than re-deriving from the current rate.
 
-`Tutor.currency` is **not** read anywhere in `PayoutService` — payout `amount`s are computed
-and stored as plain numbers with no currency conversion applied. Setting a tutor's currency
-does not change how their payouts are calculated; it only records what currency their
-`hourlyRate` is quoted in for display purposes.
+`Tutor.currency` is read at payout-generation time purely to label the result: `amount`s are
+computed as plain numbers (`hoursCount * effectiveRate`, no conversion applied), and the
+resulting `TutorPayout.currency` is stamped from the tutor's currency at that moment. Setting
+a tutor's currency doesn't change any payout math — it only records what currency the
+generated payout amount is actually denominated in.
 
-## Class fee derivation (separate from payouts)
+## Class student rate (separate from payouts, no auto-derivation)
 
-`ClassService.create` and `AdminService.assignClass` are the one place `Tutor.currency` *is*
-used to convert `hourlyRate`: if a class is created without an explicit `classFee`/`baseFee`,
-the default is computed as `convertCurrency(tutor.hourlyRate, tutor.currency, 'USD')` (via
-`ExchangeRateService`), since `Class.classFee` is otherwise always treated as an implicit
-USD value elsewhere in the app (`ClassFeeConverter`, `invoice.service.ts`). This is unrelated
-to payouts — `Class.tutorHourlyRate` and the `effectiveRate` calculation above are untouched.
+`Class.studentRateAmount`/`Class.studentRateCurrency` (what a student is charged) are
+unrelated to `Tutor.hourlyRate`/`Tutor.currency` (what the tutor is paid) — they're two
+different amounts, typically in two different currencies, and neither derives from the other.
+`POST /classes` and `POST /admin/assign-class` never default a class's student rate from the
+tutor's hourly rate; if the caller doesn't supply `studentRateAmount`/`studentRateCurrency`
+explicitly, the class simply has no student rate set. `Class.tutorHourlyRate` and the
+`effectiveRate` calculation above are unaffected either way.
 
 ## What these endpoints do *not* do
 
@@ -229,7 +231,8 @@ to payouts — `Class.tutorHourlyRate` and the `effectiveRate` calculation above
 - Neither field is reachable from the tutor's own self-service profile endpoint
   (`PUT /auth/profile`) — that endpoint only accepts `bio`/`qualifications` for a tutor's
   profile, so a tutor cannot set their own rate or currency by any path, approval included.
-- Setting `currency` does not trigger any currency conversion of payouts or anything else
-  outside of the class-fee default described above — see
-  [Payout interaction](#payout-interaction) and
-  [Class fee derivation](#class-fee-derivation-separate-from-payouts).
+- Setting `currency` does not trigger any currency conversion anywhere in the app — all
+  amounts (tutor payouts, class student rates, enrollment prices, invoices) are now stored
+  as their own real amount+currency pair with no live exchange-rate conversion between them.
+  See [Payout interaction](#payout-interaction) and
+  [Class student rate](#class-student-rate-separate-from-payouts-no-auto-derivation).

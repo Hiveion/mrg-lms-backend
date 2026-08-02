@@ -233,7 +233,8 @@ model Class {
   isDemo              Boolean  @default(true) @map("is_demo")
   frequency           Int      @default(1)
   currentStudentCount Int      @default(0) @map("current_student_count")
-  classFee            Float    @default(0.0) @map("class_fee")
+  studentRateAmount   Float?   @map("student_rate_amount")
+  studentRateCurrency String?  @map("student_rate_currency")
   tutorHourlyRate      Float?        @map("tutor_hourly_rate")
   
   createdAt           DateTime @default(now()) @map("created_at")
@@ -350,6 +351,7 @@ model Enrollment {
   classId          Int              @map("class_id")
   enrollmentDate   DateTime         @default(now()) @map("enrollment_date")
   assignedPrice    Float            @map("assigned_price")
+  priceCurrency    String           @map("price_currency")
   description      String?          @map("description")
   status           EnrollmentStatus @default(REQUESTED)
   confirmationDate DateTime?        @map("confirmation_date")
@@ -599,6 +601,7 @@ model Invoice {
   discount          Float         @default(0.0)
   additionalPayment Float         @default(0.0) @map("additional_payment")
   total             Float         @default(0.0)
+  currency          String
   status    InvoiceStatus @default(DRAFT)
   dueDate   DateTime      @map("due_date")
   paidDate  DateTime?     @map("paid_date")
@@ -700,6 +703,7 @@ model TutorPayout {
   amount               Float             @default(0.0)
   additionalAmount     Float             @default(0.0) @map("additional_amount")
   discount             Float             @default(0.0)
+  currency             String
   notes                String?           @db.Text
   slipUrl              String?           @map("slip_url")
   slipFileId           String?           @map("slip_file_id")

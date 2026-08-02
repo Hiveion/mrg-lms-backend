@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsInt, IsOptional, IsBoolean, Min, IsNumber } from 'class-validator';
+import { IsString, IsNotEmpty, IsInt, IsOptional, IsBoolean, Min, IsNumber, ValidateIf } from 'class-validator';
 
 export class CreateClassDto {
     @IsString()
@@ -28,7 +28,12 @@ export class CreateClassDto {
     @IsNumber()
     @IsOptional()
     @Min(0)
-    classFee?: number;
+    studentRateAmount?: number;
+
+    @ValidateIf((dto) => dto.studentRateAmount !== undefined)
+    @IsString()
+    @IsNotEmpty()
+    studentRateCurrency?: string;
 
     @IsNumber()
     @IsOptional()
@@ -64,7 +69,12 @@ export class UpdateClassDto {
     @IsNumber()
     @IsOptional()
     @Min(0)
-    classFee?: number;
+    studentRateAmount?: number;
+
+    @ValidateIf((dto) => dto.studentRateAmount !== undefined)
+    @IsString()
+    @IsNotEmpty()
+    studentRateCurrency?: string;
 
     @IsNumber()
     @IsOptional()

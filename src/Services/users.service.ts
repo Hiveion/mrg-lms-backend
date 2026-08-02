@@ -174,7 +174,8 @@ export class UsersService {
                         id: true,
                         name: true,
                         grade: true,
-                        classFee: true,
+                        studentRateAmount: true,
+                        studentRateCurrency: true,
                         subject: {
                             select: { name: true },
                         },

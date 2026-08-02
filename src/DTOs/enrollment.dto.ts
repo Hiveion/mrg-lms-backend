@@ -15,6 +15,10 @@ export class CreateEnrollmentDto {
     @Min(0)
     assignedPrice?: number;
 
+    @IsString()
+    @IsOptional()
+    priceCurrency?: string;
+
     @IsEnum(EnrollmentStatus)
     @IsOptional()
     status?: EnrollmentStatus;
@@ -45,6 +49,10 @@ export class UpdateAssignedPriceDto {
     @IsNotEmpty()
     @Min(0)
     assignedPrice: number;
+
+    @IsString()
+    @IsOptional()
+    priceCurrency?: string;
 }
 
 export class ToggleRecordingAccessDto {

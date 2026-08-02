@@ -2,14 +2,11 @@ import { Injectable, NotFoundException, ConflictException } from '@nestjs/common
 import { PrismaService } from '../Database/prisma.service';
 import { CreateEnrollmentDto, UpdateEnrollmentDto, UpdateAssignedPriceDto } from '../DTOs/enrollment.dto';
 import { EnrollmentStatus, UserRole } from '@prisma/client';
-import { ExchangeRateService } from './exchange-rate.service';
-import { ClassFeeConverter } from '../Utils/class-fee-converter';
 
 @Injectable()
 export class EnrollmentService {
     constructor(
         private prisma: PrismaService,
-        private exchangeRateService: ExchangeRateService,
     ) { }
 
     async create(createEnrollmentDto: CreateEnrollmentDto) {
@@ -29,10 +26,12 @@ export class EnrollmentService {
             throw new NotFoundException(`Class with ID ${createEnrollmentDto.classId} not found`);
         }
 
-        // Set assignedPrice to classFee if not provided
+        // Amount defaults to the class's advertised student rate; currency always follows
+        // the enrolling student's own currency. No conversion happens between the two.
         const assignedPrice = createEnrollmentDto.assignedPrice !== undefined
             ? createEnrollmentDto.assignedPrice
-            : classItem.classFee;
+            : (classItem.studentRateAmount ?? 0);
+        const priceCurrency = createEnrollmentDto.priceCurrency ?? student.currency;
 
         try {
             return await this.prisma.$transaction(async (tx) => {
@@ -49,6 +48,7 @@ export class EnrollmentService {
                     data: {
                         ...createEnrollmentDto,
                         assignedPrice,
+                        priceCurrency,
                         status: createEnrollmentDto.status || EnrollmentStatus.REQUESTED,
                     },
                     include: {
@@ -126,7 +126,10 @@ export class EnrollmentService {
 
         return this.prisma.enrollment.update({
             where: { id },
-            data: { assignedPrice: updatePriceDto.assignedPrice },
+            data: {
+                assignedPrice: updatePriceDto.assignedPrice,
+                ...(updatePriceDto.priceCurrency !== undefined && { priceCurrency: updatePriceDto.priceCurrency }),
+            },
         });
     }
 
@@ -155,36 +158,8 @@ export class EnrollmentService {
         });
     }
 
-    /**
-     * Find enrollments for a student with prices converted to student's currency
-     * @param userId User ID of the student
-     * @param userRole User role
-     */
     async findByStudentUserIdForStudent(userId: number, userRole: string | UserRole) {
-        const enrollments = await this.findByStudentUserId(userId);
-
-        // Only convert if requesting as a student
-        if (userRole === UserRole.STUDENT) {
-            // Get student's preferred currency
-            const student = await this.prisma.student.findFirst({
-                where: { user: { id: userId } },
-            });
-
-            const studentCurrency = student?.currency || 'USD';
-
-            // Convert prices for each enrollment
-            return Promise.all(
-                enrollments.map((enrollment) =>
-                    ClassFeeConverter.convertEnrollmentPriceForStudent(
-                        enrollment,
-                        studentCurrency,
-                        this.exchangeRateService
-                    )
-                )
-            );
-        }
-
-        return enrollments;
+        return this.findByStudentUserId(userId);
     }
 
     async findNextSessions(userId: number) {
