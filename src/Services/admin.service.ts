@@ -45,7 +45,8 @@ export class AdminService {
                         id: true,
                         name: true,
                         grade: true,
-                        classFee: true,
+                        studentRateAmount: true,
+                        studentRateCurrency: true,
                         subject: {
                             select: { name: true },
                         },
@@ -246,8 +247,8 @@ export class AdminService {
                     isActive: true,
                     isDemo: false,
                     frequency: dto.frequency || schedule.length,
-                    maxStudentCount: dto.maxStudents || 20,
-                    classFee: dto.baseFee || 0,
+                    studentRateAmount: dto.studentRateAmount,
+                    studentRateCurrency: dto.studentRateCurrency,
                     currentStudentCount: students.length,
                     schedules: {
                         create: schedule.map(slot => ({
@@ -260,12 +261,17 @@ export class AdminService {
             });
 
             // 2. Enroll All Students
+            // An explicit studentPriceAmount/Currency override applies uniformly to every
+            // student in the batch; otherwise each student's amount falls back to the
+            // class's advertised student rate, but currency always follows that specific
+            // student's own currency (no conversion between the two).
             await tx.enrollment.createMany({
                 data: students.map(student => ({
                     studentId: student.id,
                     classId: newClass.id,
                     status: EnrollmentStatus.ACTIVE,
-                    assignedPrice: dto.studentPrice || dto.baseFee || 0,
+                    assignedPrice: dto.studentPriceAmount ?? dto.studentRateAmount ?? 0,
+                    priceCurrency: dto.studentPriceCurrency ?? student.currency,
                     confirmationDate: new Date(),
                 }))
             });

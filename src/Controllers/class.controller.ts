@@ -11,7 +11,6 @@ export class ClassController {
     @Get('my-classes')
     @UseGuards(AuthGuard('jwt'))
     async findMyClasses(@Req() req: any) {
-        // If student, convert fees to their currency
         if (req.user.userType === UserRole.STUDENT) {
             return this.classService.findMyClassesForStudent(
                 req.user.id,
@@ -19,7 +18,6 @@ export class ClassController {
                 req.user.id
             );
         }
-        // For admins/coordinators/tutors, return without conversion
         return this.classService.findMyClasses(req.user.id, req.user.userType);
     }
 

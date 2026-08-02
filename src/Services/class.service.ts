@@ -2,14 +2,11 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { PrismaService } from '../Database/prisma.service';
 import { CreateClassDto, UpdateClassDto } from '../DTOs/class.dto';
 import { UserRole } from '@prisma/client';
-import { ExchangeRateService } from './exchange-rate.service';
-import { ClassFeeConverter } from '../Utils/class-fee-converter';
 
 @Injectable()
 export class ClassService {
     constructor(
         private prisma: PrismaService,
-        private exchangeRateService: ExchangeRateService,
     ) { }
 
     async create(createClassDto: CreateClassDto) {
@@ -208,66 +205,19 @@ export class ClassService {
         }
     }
 
-   
     async findMyClassesForStudent(
         userId: number,
         userRole: string | UserRole,
         studentUserId?: number
     ) {
-        const classes = await this.findMyClasses(userId, userRole);
-
-        // Only convert if requesting as a student
-        if (userRole === UserRole.STUDENT && studentUserId) {
-            const student = await this.prisma.student.findFirst({
-                where: { user: { id: studentUserId } },
-            });
-
-            const studentCurrency = student?.currency || 'USD';
-
-            return Promise.all(
-                classes.map((classItem) =>
-                    ClassFeeConverter.convertClassFeeForStudent(
-                        classItem,
-                        studentCurrency,
-                        this.exchangeRateService
-                    )
-                )
-            );
-        }
-
-        return classes;
+        return this.findMyClasses(userId, userRole);
     }
 
     async findAllForStudent(studentUserId: number) {
-        const classes = await this.findAll();
-
-        const student = await this.prisma.student.findFirst({
-            where: { user: { id: studentUserId } },
-        });
-
-        const studentCurrency = student?.currency || 'USD';
-
-        return Promise.all(
-            classes.map((classItem) =>
-                ClassFeeConverter.convertClassFeeForStudent(
-                    classItem,
-                    studentCurrency,
-                    this.exchangeRateService
-                )
-            )
-        );
+        return this.findAll();
     }
 
     async findOneForStudent(id: number, studentUserId: number) {
-        const classItem = await this.findOne(id);
-        const student = await this.prisma.student.findFirst({
-            where: { user: { id: studentUserId } },
-        });
-        const studentCurrency = student?.currency || 'USD';
-        return ClassFeeConverter.convertClassFeeForStudent(
-            classItem,
-            studentCurrency,
-            this.exchangeRateService
-        );
+        return this.findOne(id);
     }
 }

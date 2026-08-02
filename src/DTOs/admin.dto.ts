@@ -1,4 +1,4 @@
-import { IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, MinLength, IsInt, IsArray, ValidateNested, IsNumber, IsBoolean, Min, IsIn } from 'class-validator';
+import { IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, MinLength, IsInt, IsArray, ValidateNested, IsNumber, IsBoolean, Min, IsIn, ValidateIf } from 'class-validator';
 import { Type } from 'class-transformer';
 import { UserRole, UserStatus, WeekDay } from '@prisma/client';
 
@@ -138,17 +138,23 @@ export class AssignClassDto {
     @IsOptional()
     name?: string;
 
-    @IsInt()
+    @IsNumber()
     @IsOptional()
-    maxStudents?: number;
+    studentRateAmount?: number;
+
+    @ValidateIf((dto) => dto.studentRateAmount !== undefined)
+    @IsString()
+    @IsNotEmpty()
+    studentRateCurrency?: string;
 
     @IsNumber()
     @IsOptional()
-    baseFee?: number;
+    studentPriceAmount?: number;
 
-    @IsNumber()
-    @IsOptional()
-    studentPrice?: number;
+    @ValidateIf((dto) => dto.studentPriceAmount !== undefined)
+    @IsString()
+    @IsNotEmpty()
+    studentPriceCurrency?: string;
 
     @IsBoolean()
     @IsOptional()

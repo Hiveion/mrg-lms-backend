@@ -260,12 +260,16 @@ export class PayoutService {
 
             const payoutItemsData: { classId: number, hoursCount: number, amount: number }[] = [];
             let totalAmount = 0;
+            // All classes in this group share the same tutorId, so they share the same
+            // tutor and therefore the same payout currency.
+            let currency = 'LKR';
 
             for (const [classId, data] of classMap.entries()) {
                 const totalMinutes = data.sessions.reduce((sum, s) => sum + s.duration, 0);
                 const hoursCount = totalMinutes / 60.0;
                 const hourlyRate = data.classItem.tutorHourlyRate ?? data.classItem.tutor?.hourlyRate ?? 0.0;
                 const amount = hoursCount * hourlyRate;
+                currency = data.classItem.tutor?.currency ?? currency;
 
                 payoutItemsData.push({
                     classId,
@@ -284,6 +288,7 @@ export class PayoutService {
                         tutorId,
                         month,
                         amount: totalAmount,
+                        currency,
                         status: PayoutStatus.PENDING,
                         items: {
                             create: payoutItemsData.map(item => ({
