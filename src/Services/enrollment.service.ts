@@ -1,7 +1,26 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../Database/prisma.service';
 import { CreateEnrollmentDto, UpdateEnrollmentDto, UpdateAssignedPriceDto } from '../DTOs/enrollment.dto';
-import { EnrollmentStatus, UserRole } from '@prisma/client';
+import { EnrollmentStatus, UserRole, Prisma } from '@prisma/client';
+
+const TUTOR_SELECT = {
+    id: true,
+    bio: true,
+    averageRating: true,
+    totalReviews: true,
+    hourlyRate: true,
+    currency: true,
+    user: {
+        select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            profilePicture: true,
+            phoneNumber: true,
+        },
+    },
+} satisfies Prisma.TutorSelect;
 
 @Injectable()
 export class EnrollmentService {
@@ -71,7 +90,7 @@ export class EnrollmentService {
         return this.prisma.enrollment.findMany({
             include: {
                 student: { include: { user: true } },
-                class: { include: { subject: true } },
+                class: { include: { subject: true, tutor: { select: TUTOR_SELECT } } },
             },
         });
     }
@@ -81,7 +100,7 @@ export class EnrollmentService {
             where: { id },
             include: {
                 student: { include: { user: true } },
-                class: { include: { subject: true } },
+                class: { include: { subject: true, tutor: { select: TUTOR_SELECT } } },
             },
         });
 
@@ -111,7 +130,7 @@ export class EnrollmentService {
             data,
             include: {
                 student: { include: { user: true } },
-                class: { include: { subject: true } },
+                class: { include: { subject: true, tutor: { select: TUTOR_SELECT } } },
             },
         });
     }
