@@ -147,6 +147,7 @@ model Tutor {
   availabilities   TutorAvailability[]
   sessionFeedbacks SessionFeedback[]
   payouts          TutorPayout[]
+  classRequests    ClassRequest[]
 
   @@map("tutors")
 }
@@ -157,10 +158,10 @@ model Student {
   rating         Float    @default(0.0)
   enrollmentDate DateTime @default(now()) @map("enrollment_date")
 
-  user                User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId              Int                   @unique @map("user_id")
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId Int  @unique @map("user_id")
 
-  currency    String   @default("MVR") @map("currency")
+  currency String @default("MVR") @map("currency")
 
   parents             ParentStudent[]
   enrollments         Enrollment[]
@@ -218,39 +219,76 @@ model Subject {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  classes Class[]
+  classes       Class[]
+  classRequests ClassRequest[]
 
   @@map("subjects")
 }
 
 model Class {
-  id                  Int      @id @default(autoincrement()) @map("class_id")
-  name                String   @map("class_name")
-  subjectId           Int      @map("subject_id")
-  tutorId             Int      @map("tutor_id")
+  id                  Int     @id @default(autoincrement()) @map("class_id")
+  name                String  @map("class_name")
+  subjectId           Int     @map("subject_id")
+  tutorId             Int     @map("tutor_id")
   grade               String?
-  isActive            Boolean  @default(true) @map("is_active")
-  isDemo              Boolean  @default(true) @map("is_demo")
-  frequency           Int      @default(1)
-  currentStudentCount Int      @default(0) @map("current_student_count")
-  studentRateAmount   Float?   @map("student_rate_amount")
-  studentRateCurrency String?  @map("student_rate_currency")
-  tutorHourlyRate      Float?        @map("tutor_hourly_rate")
-  
-  createdAt           DateTime @default(now()) @map("created_at")
-  updatedAt           DateTime @updatedAt @map("updated_at")
+  isActive            Boolean @default(true) @map("is_active")
+  isDemo              Boolean @default(true) @map("is_demo")
+  frequency           Int     @default(1)
+  currentStudentCount Int     @default(0) @map("current_student_count")
+  studentRateAmount   Float?  @map("student_rate_amount")
+  studentRateCurrency String? @map("student_rate_currency")
+  tutorHourlyRate     Float?  @map("tutor_hourly_rate")
+  tutorRateCurrency   String? @map("tutor_rate_currency")
 
-  subject    Subject      @relation(fields: [subjectId], references: [id])
-  tutor      Tutor        @relation(fields: [tutorId], references: [id])
-  sessions   Session[]
-  schedules  ClassSchedule[]
-  enrollments Enrollment[]
-  homeworks  Homework[]
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  subject           Subject            @relation(fields: [subjectId], references: [id])
+  tutor             Tutor              @relation(fields: [tutorId], references: [id])
+  sessions          Session[]
+  schedules         ClassSchedule[]
+  enrollments       Enrollment[]
+  homeworks         Homework[]
   discussionThreads DiscussionThread[]
-  invoiceItems InvoiceItem[]
-  resources Resource[]
-  tutorPayoutItems TutorPayoutItem[]
+  invoiceItems      InvoiceItem[]
+  resources         Resource[]
+  tutorPayoutItems  TutorPayoutItem[]
+  classRequest      ClassRequest?
+
   @@map("classes")
+}
+
+enum ClassRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model ClassRequest {
+  id               Int                @id @default(autoincrement()) @map("class_request_id")
+  tutorId          Int                @map("tutor_id")
+  subjectId        Int                @map("subject_id")
+  name             String?            @map("class_name")
+  grade            String?
+  studentIds       Int[]              @map("student_ids")
+  schedule         Json               @map("schedule")
+  startDate        String?            @map("start_date")
+  frequency        Int?
+  numberOfWeeks    Int?               @map("number_of_weeks")
+  createSessions   Boolean            @default(true) @map("create_sessions")
+  status           ClassRequestStatus @default(PENDING)
+  rejectionReason  String?            @map("rejection_reason")
+  resultingClassId Int?               @unique @map("resulting_class_id")
+  reviewedById     Int?               @map("reviewed_by_id")
+  reviewedAt       DateTime?          @map("reviewed_at")
+  createdAt        DateTime           @default(now()) @map("created_at")
+  updatedAt        DateTime           @updatedAt @map("updated_at")
+
+  tutor          Tutor   @relation(fields: [tutorId], references: [id], onDelete: Cascade)
+  subject        Subject @relation(fields: [subjectId], references: [id])
+  resultingClass Class?  @relation(fields: [resultingClassId], references: [id])
+
+  @@map("class_requests")
 }
 
 model ClassSchedule {
@@ -327,13 +365,13 @@ model Session {
   createdAt            DateTime      @default(now()) @map("created_at")
   updatedAt            DateTime      @updatedAt @map("updated_at")
 
-  recordingUrl           String?          @map("recording_url")
-  recordingFileId        String?          @map("recording_file_id")
-  recordingStatus        SessionRecordingStatus? @default(PENDING) @map("recording_status")
+  recordingUrl    String?                 @map("recording_url")
+  recordingFileId String?                 @map("recording_file_id")
+  recordingStatus SessionRecordingStatus? @default(PENDING) @map("recording_status")
 
-  transcriptUrl        String?   @map("transcript_url")
-  transcriptFileId     String?   @map("transcript_file_id")
-  transcriptStatus     SessionTranscriptStatus? @default(PENDING) @map("transcript_status")
+  transcriptUrl    String?                  @map("transcript_url")
+  transcriptFileId String?                  @map("transcript_file_id")
+  transcriptStatus SessionTranscriptStatus? @default(PENDING) @map("transcript_status")
 
   class              Class               @relation(fields: [classId], references: [id], onDelete: Cascade)
   rescheduledSession Session?            @relation("RescheduledSession", fields: [rescheduledSessionId], references: [id])
@@ -343,7 +381,6 @@ model Session {
 
   @@map("sessions")
 }
-
 
 model Enrollment {
   id               Int              @id @default(autoincrement()) @map("enrollment_id")
@@ -357,7 +394,7 @@ model Enrollment {
   confirmationDate DateTime?        @map("confirmation_date")
   createdAt        DateTime         @default(now()) @map("created_at")
   updatedAt        DateTime         @updatedAt @map("updated_at")
-  
+
   recordingAccess Boolean @default(false) @map("recording_access")
 
   student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
@@ -503,10 +540,10 @@ model DiscussionThread {
   createdAt DateTime       @default(now()) @map("created_at")
   updatedAt DateTime       @updatedAt @map("updated_at")
 
-  class     Class          @relation(fields: [classId], references: [id], onDelete: Cascade)
-  author    User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  replies   DiscussionReply[]
-  likes     DiscussionLike[]
+  class   Class             @relation(fields: [classId], references: [id], onDelete: Cascade)
+  author  User              @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  replies DiscussionReply[]
+  likes   DiscussionLike[]
 
   @@map("discussion_threads")
 }
@@ -520,16 +557,16 @@ model DiscussionReply {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  thread    DiscussionThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
-  author    User             @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  likes     ReplyLike[]
+  thread DiscussionThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  author User             @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  likes  ReplyLike[]
 
   @@map("discussion_replies")
 }
 
 model DiscussionLike {
-  userId    Int @map("user_id")
-  threadId  Int @map("thread_id")
+  userId   Int @map("user_id")
+  threadId Int @map("thread_id")
 
   user   User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   thread DiscussionThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
@@ -594,19 +631,19 @@ enum PaymentMethod {
 }
 
 model Invoice {
-  id        Int           @id @default(autoincrement()) @map("invoice_id")
-  studentId Int           @map("student_id")
-  month     String        // e.g., "2024-12"
+  id                Int           @id @default(autoincrement()) @map("invoice_id")
+  studentId         Int           @map("student_id")
+  month             String // e.g., "2024-12"
   subtotal          Float         @default(0.0)
   discount          Float         @default(0.0)
   additionalPayment Float         @default(0.0) @map("additional_payment")
   total             Float         @default(0.0)
   currency          String
-  status    InvoiceStatus @default(DRAFT)
-  dueDate   DateTime      @map("due_date")
-  paidDate  DateTime?     @map("paid_date")
-  createdAt DateTime      @default(now()) @map("created_at")
-  updatedAt DateTime      @updatedAt @map("updated_at")
+  status            InvoiceStatus @default(DRAFT)
+  dueDate           DateTime      @map("due_date")
+  paidDate          DateTime?     @map("paid_date")
+  createdAt         DateTime      @default(now()) @map("created_at")
+  updatedAt         DateTime      @updatedAt @map("updated_at")
 
   student  Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
   items    InvoiceItem[]
@@ -649,7 +686,6 @@ model Payment {
   @@map("payments")
 }
 
-
 model SessionFeedback {
   id        Int      @id @default(autoincrement()) @map("feedback_id")
   sessionId Int      @map("session_id")
@@ -669,22 +705,22 @@ model SessionFeedback {
 }
 
 model Resource {
-  id           Int      @id @default(autoincrement()) @map("resource_id")
-  classId      Int      @map("class_id")
-  title        String
-  description  String?
-  fileUrl      String   @map("file_url")
-  fileId       String   @map("file_id")
-  fileName     String   @map("file_name")
-  fileSize     Int?     @map("file_size")
-  mimeType     String?  @map("mime_type")
-  uploadedById Int      @map("uploaded_by_id")
-  downloadCount Int     @default(0) @map("download_count")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  id            Int      @id @default(autoincrement()) @map("resource_id")
+  classId       Int      @map("class_id")
+  title         String
+  description   String?
+  fileUrl       String   @map("file_url")
+  fileId        String   @map("file_id")
+  fileName      String   @map("file_name")
+  fileSize      Int?     @map("file_size")
+  mimeType      String?  @map("mime_type")
+  uploadedById  Int      @map("uploaded_by_id")
+  downloadCount Int      @default(0) @map("download_count")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
 
-  class        Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
-  uploadedBy   User     @relation(fields: [uploadedById], references: [id], onDelete: Cascade)
+  class      Class @relation(fields: [classId], references: [id], onDelete: Cascade)
+  uploadedBy User  @relation(fields: [uploadedById], references: [id], onDelete: Cascade)
 
   @@map("resources")
 }
@@ -697,39 +733,39 @@ enum PayoutStatus {
 }
 
 model TutorPayout {
-  id                   Int               @id @default(autoincrement()) @map("payout_id")
-  tutorId              Int               @map("tutor_id")
-  month                String            // format "YYYY-MM"
-  amount               Float             @default(0.0)
-  additionalAmount     Float             @default(0.0) @map("additional_amount")
-  discount             Float             @default(0.0)
+  id                   Int          @id @default(autoincrement()) @map("payout_id")
+  tutorId              Int          @map("tutor_id")
+  month                String // format "YYYY-MM"
+  amount               Float        @default(0.0)
+  additionalAmount     Float        @default(0.0) @map("additional_amount")
+  discount             Float        @default(0.0)
   currency             String
-  notes                String?           @db.Text
-  slipUrl              String?           @map("slip_url")
-  slipFileId           String?           @map("slip_file_id")
-  status               PayoutStatus      @default(PENDING)
-  transactionReference String?           @map("transaction_reference")
-  createdAt            DateTime          @default(now()) @map("created_at")
-  updatedAt            DateTime          @updatedAt @map("updated_at")
+  notes                String?      @db.Text
+  slipUrl              String?      @map("slip_url")
+  slipFileId           String?      @map("slip_file_id")
+  status               PayoutStatus @default(PENDING)
+  transactionReference String?      @map("transaction_reference")
+  createdAt            DateTime     @default(now()) @map("created_at")
+  updatedAt            DateTime     @updatedAt @map("updated_at")
 
-  tutor                Tutor             @relation(fields: [tutorId], references: [id], onDelete: Cascade)
-  items                TutorPayoutItem[]
+  tutor Tutor             @relation(fields: [tutorId], references: [id], onDelete: Cascade)
+  items TutorPayoutItem[]
 
   @@unique([tutorId, month])
   @@map("tutor_payouts")
 }
 
 model TutorPayoutItem {
-  id             Int         @id @default(autoincrement()) @map("item_id")
-  payoutId       Int         @map("payout_id")
-  classId        Int         @map("class_id")
-  hoursCount     Float       @map("hours_count")
-  amount         Float       @default(0.0)
-  createdAt      DateTime    @default(now()) @map("created_at")
-  updatedAt      DateTime    @updatedAt @map("updated_at")
+  id         Int      @id @default(autoincrement()) @map("item_id")
+  payoutId   Int      @map("payout_id")
+  classId    Int      @map("class_id")
+  hoursCount Float    @map("hours_count")
+  amount     Float    @default(0.0)
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
 
-  payout         TutorPayout @relation(fields: [payoutId], references: [id], onDelete: Cascade)
-  class          Class       @relation(fields: [classId], references: [id], onDelete: Cascade)
+  payout TutorPayout @relation(fields: [payoutId], references: [id], onDelete: Cascade)
+  class  Class       @relation(fields: [classId], references: [id], onDelete: Cascade)
 
   @@unique([payoutId, classId])
   @@map("tutor_payout_items")

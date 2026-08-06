@@ -1,10 +1,11 @@
 import { Controller, Post, Get, Patch, Delete, Body, UseGuards, Request, Param, ParseIntPipe, Query } from '@nestjs/common';
 import { AdminService } from '../Services/admin.service';
 import { CreateUserByAdminDto, InviteUserDto, AssignClassDto, UpdateUserByAdminDto, UpdateTutorRateDto, ApproveUserDto } from '../DTOs/admin.dto';
+import { RequestClassDto, ApproveClassRequestDto, RejectClassRequestDto } from '../DTOs/class-request.dto';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../Guards/roles.guard';
 import { Roles } from '../Decorators/roles.decorator';
-import { UserRole } from '@prisma/client';
+import { UserRole, ClassRequestStatus } from '@prisma/client';
 
 @Controller('admin')
 @UseGuards(AuthGuard('jwt'), RolesGuard)
@@ -50,9 +51,43 @@ export class AdminController {
     }
 
     @Post('assign-class')
-    @Roles(UserRole.ADMIN, UserRole.COORDINATOR, UserRole.TUTOR)
     async assignClass(@Body() assignClassDto: AssignClassDto, @Request() req: any) {
         return this.adminService.assignClass(assignClassDto, req.user.id);
+    }
+
+    @Post('request-class')
+    @Roles(UserRole.TUTOR)
+    async requestClass(@Body() dto: RequestClassDto, @Request() req: any) {
+        return this.adminService.createClassRequest(dto, req.user.id);
+    }
+
+    @Get('class-requests')
+    async listClassRequests(@Query('status') status?: ClassRequestStatus) {
+        return this.adminService.listClassRequests(status);
+    }
+
+    @Get('class-requests/my')
+    @Roles(UserRole.TUTOR)
+    async listMyClassRequests(@Request() req: any) {
+        return this.adminService.listMyClassRequests(req.user.id);
+    }
+
+    @Patch('class-requests/:id/approve')
+    async approveClassRequest(
+        @Param('id', ParseIntPipe) id: number,
+        @Body() dto: ApproveClassRequestDto,
+        @Request() req: any,
+    ) {
+        return this.adminService.approveClassRequest(id, dto, req.user.id);
+    }
+
+    @Patch('class-requests/:id/reject')
+    async rejectClassRequest(
+        @Param('id', ParseIntPipe) id: number,
+        @Body() dto: RejectClassRequestDto,
+        @Request() req: any,
+    ) {
+        return this.adminService.rejectClassRequest(id, dto?.reason, req.user.id);
     }
 
     @Get('matching-slots')

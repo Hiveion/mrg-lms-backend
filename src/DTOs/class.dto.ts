@@ -39,6 +39,11 @@ export class CreateClassDto {
     @IsOptional()
     @Min(0)
     tutorHourlyRate?: number;
+
+    @ValidateIf((dto) => dto.tutorHourlyRate !== undefined)
+    @IsString()
+    @IsNotEmpty()
+    tutorRateCurrency?: string;
 }
 
 export class UpdateClassDto {
@@ -80,5 +85,10 @@ export class UpdateClassDto {
     @IsOptional()
     @Min(0)
     tutorHourlyRate?: number;
+
+    @ValidateIf((dto) => dto.tutorHourlyRate !== undefined)
+    @IsString()
+    @IsNotEmpty()
+    tutorRateCurrency?: string;
 }
 

@@ -2,6 +2,8 @@ import { Controller, Get, Post, Body, Patch, Param, Delete, ParseIntPipe, UseGua
 import { ClassService } from '../Services/class.service';
 import { CreateClassDto, UpdateClassDto } from '../DTOs/class.dto';
 import { AuthGuard } from '@nestjs/passport';
+import { RolesGuard } from '../Guards/roles.guard';
+import { Roles } from '../Decorators/roles.decorator';
 import { UserRole } from '@prisma/client';
 
 @Controller('classes')
@@ -22,6 +24,8 @@ export class ClassController {
     }
 
     @Post()
+    @UseGuards(AuthGuard('jwt'), RolesGuard)
+    @Roles(UserRole.ADMIN, UserRole.COORDINATOR)
     create(@Body() createClassDto: CreateClassDto) {
         return this.classService.create(createClassDto);
     }
@@ -45,11 +49,15 @@ export class ClassController {
     }
 
     @Patch(':id')
+    @UseGuards(AuthGuard('jwt'), RolesGuard)
+    @Roles(UserRole.ADMIN, UserRole.COORDINATOR)
     update(@Param('id', ParseIntPipe) id: number, @Body() updateClassDto: UpdateClassDto) {
         return this.classService.update(id, updateClassDto);
     }
 
     @Delete(':id')
+    @UseGuards(AuthGuard('jwt'), RolesGuard)
+    @Roles(UserRole.ADMIN, UserRole.COORDINATOR)
     remove(@Param('id', ParseIntPipe) id: number) {
         return this.classService.remove(id);
     }
