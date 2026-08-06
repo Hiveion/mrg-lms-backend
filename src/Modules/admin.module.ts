@@ -5,6 +5,7 @@ import { PrismaService } from '../Database/prisma.service';
 
 import { GoogleModule } from './google.module';
 import { MailModule } from './mail.module';
+import { NotificationModule } from './notification.module';
 
 import { JwtModule } from '@nestjs/jwt';
 
@@ -16,6 +17,7 @@ import { JwtModule } from '@nestjs/jwt';
         }),
         GoogleModule,
         MailModule,
+        NotificationModule,
     ],
     controllers: [AdminController],
     providers: [AdminService, PrismaService],

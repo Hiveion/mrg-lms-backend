@@ -159,4 +159,14 @@ export class AssignClassDto {
     @IsBoolean()
     @IsOptional()
     createSessions?: boolean;
+
+    @IsNumber()
+    @IsOptional()
+    @Min(0)
+    tutorHourlyRate?: number;
+
+    @ValidateIf((dto) => dto.tutorHourlyRate !== undefined)
+    @IsString()
+    @IsNotEmpty()
+    tutorRateCurrency?: string;
 }

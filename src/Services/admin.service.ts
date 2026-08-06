@@ -1,9 +1,11 @@
 import { Injectable, ConflictException, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../Database/prisma.service';
 import * as bcrypt from 'bcrypt';
-import { CreateUserByAdminDto, InviteUserDto, AssignClassDto, UpdateUserByAdminDto } from '../DTOs/admin.dto';
-import { UserStatus, UserRole, EnrollmentStatus, SessionStatus, WeekDay } from '@prisma/client';
+import { CreateUserByAdminDto, InviteUserDto, AssignClassDto, UpdateUserByAdminDto, ClassScheduleDto } from '../DTOs/admin.dto';
+import { RequestClassDto, ApproveClassRequestDto } from '../DTOs/class-request.dto';
+import { UserStatus, UserRole, EnrollmentStatus, SessionStatus, WeekDay, ClassRequestStatus, NotificationType } from '@prisma/client';
 import { MailService } from './mail.service';
+import { NotificationService } from './notification.service';
 
 import { JwtService } from '@nestjs/jwt';
 import { GoogleService } from './google.service';
@@ -23,6 +25,7 @@ export class AdminService {
         private mailService: MailService,
         private jwtService: JwtService,
         private googleService: GoogleService,
+        private notificationService: NotificationService,
     ) { }
 
     async findAllTutors() {
@@ -201,10 +204,60 @@ export class AdminService {
     }
 
     async assignClass(dto: AssignClassDto, adminId: number) {
-        const { tutorId, subjectId, schedule, startDate, numberOfWeeks = 4, grade, createSessions = true } = dto;
-
         // Support both studentId and studentIds for backward compatibility
         const studentIds = dto.studentIds || (dto.studentId ? [dto.studentId] : []);
+
+        return this.materializeClass({
+            tutorId: dto.tutorId,
+            subjectId: dto.subjectId,
+            studentIds,
+            name: dto.name,
+            grade: dto.grade,
+            schedule: dto.schedule,
+            startDate: dto.startDate,
+            frequency: dto.frequency,
+            numberOfWeeks: dto.numberOfWeeks,
+            createSessions: dto.createSessions,
+            studentRateAmount: dto.studentRateAmount,
+            studentRateCurrency: dto.studentRateCurrency,
+            studentPriceAmount: dto.studentPriceAmount,
+            studentPriceCurrency: dto.studentPriceCurrency,
+            tutorHourlyRate: dto.tutorHourlyRate,
+            tutorRateCurrency: dto.tutorRateCurrency,
+            adminId,
+        });
+    }
+
+    /**
+     * Creates the Class + ClassSchedule(s), enrolls the given students (ACTIVE, priced),
+     * optionally generates Sessions, punches the slot out of tutor/student availability, and
+     * sends calendar invites. Shared by the direct admin/coordinator `assignClass` flow and by
+     * `approveClassRequest`, which calls this only once both fees have been set by an admin.
+     */
+    private async materializeClass(params: {
+        tutorId: number;
+        subjectId: number;
+        studentIds: number[];
+        name?: string;
+        grade?: string;
+        schedule: ClassScheduleDto[];
+        startDate?: string;
+        frequency?: number;
+        numberOfWeeks?: number;
+        createSessions?: boolean;
+        studentRateAmount?: number;
+        studentRateCurrency?: string;
+        studentPriceAmount?: number;
+        studentPriceCurrency?: string;
+        tutorHourlyRate?: number;
+        tutorRateCurrency?: string;
+        adminId: number;
+    }) {
+        const {
+            tutorId, subjectId, studentIds, schedule, startDate,
+            numberOfWeeks = 4, grade, createSessions = true, adminId,
+        } = params;
+
         if (studentIds.length === 0) {
             throw new NotFoundException('At least one student must be specified');
         }
@@ -226,7 +279,7 @@ export class AdminService {
             throw new NotFoundException('Tutor or Subject not found');
         }
 
-        const className = dto.name || `${subject.name} - ${tutor.user.firstName}`;
+        const className = params.name || `${subject.name} - ${tutor.user.firstName}`;
 
         // Two admins assigning overlapping-schedule classes at the same time can cause this
         // transaction to fail (e.g. a competing transaction already modified/deleted the same
@@ -246,9 +299,11 @@ export class AdminService {
                     grade: grade || students[0].grade, // Use first student's grade if not provided
                     isActive: true,
                     isDemo: false,
-                    frequency: dto.frequency || schedule.length,
-                    studentRateAmount: dto.studentRateAmount,
-                    studentRateCurrency: dto.studentRateCurrency,
+                    frequency: params.frequency || schedule.length,
+                    studentRateAmount: params.studentRateAmount,
+                    studentRateCurrency: params.studentRateCurrency,
+                    tutorHourlyRate: params.tutorHourlyRate,
+                    tutorRateCurrency: params.tutorRateCurrency,
                     currentStudentCount: students.length,
                     schedules: {
                         create: schedule.map(slot => ({
@@ -270,8 +325,8 @@ export class AdminService {
                     studentId: student.id,
                     classId: newClass.id,
                     status: EnrollmentStatus.ACTIVE,
-                    assignedPrice: dto.studentPriceAmount ?? dto.studentRateAmount ?? 0,
-                    priceCurrency: dto.studentPriceCurrency ?? student.currency,
+                    assignedPrice: params.studentPriceAmount ?? params.studentRateAmount ?? 0,
+                    priceCurrency: params.studentPriceCurrency ?? student.currency,
                     confirmationDate: new Date(),
                 }))
             });
@@ -360,6 +415,200 @@ export class AdminService {
         }
 
         return result;
+    }
+
+    /**
+     * Tutor-submitted request for a new class. Deliberately never sets a fee — no
+     * Class/Enrollment/Session rows are created until an admin/coordinator approves the
+     * request via `approveClassRequest`.
+     */
+    async createClassRequest(dto: RequestClassDto, tutorUserId: number) {
+        const tutor = await this.prisma.tutor.findUnique({ where: { userId: tutorUserId } });
+        if (!tutor) {
+            throw new NotFoundException('Tutor profile not found');
+        }
+
+        const studentIds = dto.studentIds || (dto.studentId ? [dto.studentId] : []);
+        if (studentIds.length === 0) {
+            throw new NotFoundException('At least one student must be specified');
+        }
+
+        const [students, subject] = await Promise.all([
+            this.prisma.student.findMany({ where: { id: { in: studentIds } } }),
+            this.prisma.subject.findUnique({ where: { id: dto.subjectId } }),
+        ]);
+        if (students.length !== studentIds.length) {
+            throw new NotFoundException('One or more students not found');
+        }
+        if (!subject) {
+            throw new NotFoundException(`Subject with ID ${dto.subjectId} not found`);
+        }
+
+        return this.prisma.classRequest.create({
+            data: {
+                tutorId: tutor.id,
+                subjectId: dto.subjectId,
+                name: dto.name,
+                grade: dto.grade,
+                studentIds,
+                schedule: dto.schedule as any,
+                startDate: dto.startDate,
+                frequency: dto.frequency,
+                numberOfWeeks: dto.numberOfWeeks,
+                createSessions: dto.createSessions ?? true,
+            },
+            include: { subject: true },
+        });
+    }
+
+    async listClassRequests(status?: ClassRequestStatus) {
+        const requests = await this.prisma.classRequest.findMany({
+            where: status ? { status } : undefined,
+            include: {
+                // tutor.hourlyRate/tutor.currency double as the tutor's default rate/currency,
+                // shown to the admin as a starting point before they set the per-class fee.
+                tutor: { include: { user: true } },
+                subject: true,
+            },
+            orderBy: { createdAt: 'desc' },
+        });
+
+        // studentIds is a bare Int[] (not a Prisma relation), so it isn't resolvable via
+        // `include` — batch-fetch every referenced student once across all requests so the
+        // admin can see each student's billing currency before setting studentRateCurrency.
+        const allStudentIds = [...new Set(requests.flatMap(r => r.studentIds))];
+        const students = allStudentIds.length
+            ? await this.prisma.student.findMany({
+                where: { id: { in: allStudentIds } },
+                include: { user: { select: { firstName: true, lastName: true } } },
+            })
+            : [];
+        const studentById = new Map(students.map(s => [s.id, s]));
+
+        return requests.map(request => ({
+            ...request,
+            students: request.studentIds.map(id => studentById.get(id)).filter(Boolean),
+        }));
+    }
+
+    async listMyClassRequests(tutorUserId: number) {
+        const tutor = await this.prisma.tutor.findUnique({ where: { userId: tutorUserId } });
+        if (!tutor) {
+            throw new NotFoundException('Tutor profile not found');
+        }
+
+        return this.prisma.classRequest.findMany({
+            where: { tutorId: tutor.id },
+            include: { subject: true },
+            orderBy: { createdAt: 'desc' },
+        });
+    }
+
+    async approveClassRequest(requestId: number, dto: ApproveClassRequestDto, adminId: number) {
+        const request = await this.prisma.classRequest.findUnique({
+            where: { id: requestId },
+            include: { tutor: true },
+        });
+        if (!request) {
+            throw new NotFoundException('Class request not found');
+        }
+
+        // Atomic conditional update: only claims the request if it's still PENDING, so a
+        // concurrent approve/reject can't both "succeed" against the same stale read (same
+        // pattern as approveUser/rejectUser above).
+        const claim = await this.prisma.classRequest.updateMany({
+            where: { id: requestId, status: ClassRequestStatus.PENDING },
+            data: { status: ClassRequestStatus.APPROVED, reviewedById: adminId, reviewedAt: new Date() },
+        });
+        if (claim.count === 0) {
+            throw new ConflictException('Class request is not in PENDING status');
+        }
+
+        try {
+            const newClass = await this.materializeClass({
+                tutorId: request.tutorId,
+                subjectId: request.subjectId,
+                studentIds: request.studentIds,
+                name: request.name ?? undefined,
+                grade: request.grade ?? undefined,
+                schedule: request.schedule as unknown as ClassScheduleDto[],
+                startDate: request.startDate ?? undefined,
+                frequency: request.frequency ?? undefined,
+                numberOfWeeks: request.numberOfWeeks ?? undefined,
+                createSessions: request.createSessions,
+                studentRateAmount: dto.studentRateAmount,
+                studentRateCurrency: dto.studentRateCurrency,
+                studentPriceAmount: dto.studentPriceAmount,
+                studentPriceCurrency: dto.studentPriceCurrency,
+                tutorHourlyRate: dto.tutorHourlyRate,
+                tutorRateCurrency: dto.tutorRateCurrency,
+                adminId,
+            });
+
+            await this.prisma.classRequest.update({
+                where: { id: requestId },
+                data: { resultingClassId: newClass!.id },
+            });
+
+            try {
+                await this.notificationService.createNotification(
+                    request.tutor.userId,
+                    'Class request approved',
+                    `Your request for "${newClass!.name}" has been approved and is now live.`,
+                    NotificationType.CLASS,
+                );
+            } catch (error) {
+                console.error('Failed to send class approval notification:', error);
+            }
+
+            return newClass;
+        } catch (error) {
+            // Materialization failed (e.g. a schedule conflict) — release the claim so the
+            // request can be retried instead of being stuck "approved" with no resulting class.
+            await this.prisma.classRequest.updateMany({
+                where: { id: requestId, status: ClassRequestStatus.APPROVED },
+                data: { status: ClassRequestStatus.PENDING, reviewedById: null, reviewedAt: null },
+            });
+            throw error;
+        }
+    }
+
+    async rejectClassRequest(requestId: number, reason: string | undefined, adminId: number) {
+        const request = await this.prisma.classRequest.findUnique({
+            where: { id: requestId },
+            include: { tutor: true },
+        });
+        if (!request) {
+            throw new NotFoundException('Class request not found');
+        }
+
+        // Same atomic-conditional-update guard as rejectUser: only flips PENDING -> REJECTED
+        // if the status is still PENDING, so a concurrent approve/reject race can't both win.
+        const result = await this.prisma.classRequest.updateMany({
+            where: { id: requestId, status: ClassRequestStatus.PENDING },
+            data: {
+                status: ClassRequestStatus.REJECTED,
+                rejectionReason: reason,
+                reviewedById: adminId,
+                reviewedAt: new Date(),
+            },
+        });
+        if (result.count === 0) {
+            throw new ConflictException('Class request is not in PENDING status');
+        }
+
+        try {
+            await this.notificationService.createNotification(
+                request.tutor.userId,
+                'Class request rejected',
+                reason ? `Your class request was rejected: ${reason}` : 'Your class request was rejected.',
+                NotificationType.CLASS,
+            );
+        } catch (error) {
+            console.error('Failed to send class rejection notification:', error);
+        }
+
+        return this.prisma.classRequest.findUnique({ where: { id: requestId } });
     }
 
     async getMatchingSlots(tutorId: number, studentId: number) {
